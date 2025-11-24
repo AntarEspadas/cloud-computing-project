@@ -24,17 +24,16 @@ import {
 
 // MUI Icons
 import MouseIcon from '@mui/icons-material/Mouse';
-import BrushIcon from '@mui/icons-material/Brush'; // Pens group
-import CreateIcon from '@mui/icons-material/Create'; // Pen tool
-import AutoFixNormalIcon from '@mui/icons-material/AutoFixNormal'; // Eraser
-import categoryIcon from '@mui/icons-material/Category'; // Shapes group
+import CreateIcon from '@mui/icons-material/Create'; 
+import AutoFixNormalIcon from '@mui/icons-material/AutoFixNormal'; 
 import CropSquareIcon from '@mui/icons-material/CropSquare';
 import CircleIcon from '@mui/icons-material/Circle';
-import ShowChartIcon from '@mui/icons-material/ShowChart'; // Line
-import TextFieldsIcon from '@mui/icons-material/TextFields'; // Text
+import ShowChartIcon from '@mui/icons-material/ShowChart'; 
+import TextFieldsIcon from '@mui/icons-material/TextFields'; 
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteIcon from '@mui/icons-material/Delete'; // Trash Icon
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'; // Clear All Icon
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
 interface ToolbarProps {
@@ -47,6 +46,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
+  onDelete: () => void; // <--- ADDED THIS PROP
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({ 
@@ -58,20 +58,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onStrokeWidthChange,
   onUndo,
   onRedo,
-  onClear
+  onClear,
+  onDelete // <--- Destructure it
 }) => {
   
-  // --- State for Dropdowns ---
   const [shapesAnchor, setShapesAnchor] = useState<null | HTMLElement>(null);
   const [pensAnchor, setPensAnchor] = useState<null | HTMLElement>(null);
 
-  // --- Handlers ---
-  
   const handleToolSelect = (event: React.MouseEvent<HTMLElement>, newTool: Tool | null) => {
     if (newTool) onToolChange(newTool);
   };
 
-  // Shapes Menu Handlers
   const openShapesMenu = (event: React.MouseEvent<HTMLElement>) => setShapesAnchor(event.currentTarget);
   const closeShapesMenu = () => setShapesAnchor(null);
   const selectShape = (tool: Tool) => {
@@ -79,13 +76,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
     closeShapesMenu();
   };
 
-  // Pens Popover Handlers
   const openPensMenu = (event: React.MouseEvent<HTMLElement>) => setPensAnchor(event.currentTarget);
   const closePensMenu = () => setPensAnchor(null);
 
-  // Determine if a "Shape" tool is currently active to highlight the dropdown button
   const isShapeActive = ['RECTANGLE', 'CIRCLE', 'LINE'].includes(activeTool);
-  // Determine if a "Pen" tool is active
   const isPenActive = ['PEN', 'ERASER'].includes(activeTool);
 
   return (
@@ -97,7 +91,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mr: 2 }} />
 
-        {/* --- Main Tools --- */}
+        {/* Tools Group */}
         <ToggleButtonGroup
           value={activeTool}
           exclusive
@@ -105,14 +99,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
           size="small"
           sx={{ mr: 2 }}
         >
-          {/* 1. Select */}
           <ToggleButton value="SELECT">
             <Tooltip title="Select">
               <MouseIcon />
             </Tooltip>
           </ToggleButton>
 
-          {/* 2. Text */}
           <ToggleButton value="TEXT">
              <Tooltip title="Text Box">
               <TextFieldsIcon />
@@ -120,7 +112,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* 3. Shapes Dropdown */}
+        {/* Shapes Dropdown */}
         <Box sx={{ mr: 2 }}>
           <Button
             variant={isShapeActive ? "contained" : "outlined"}
@@ -148,7 +140,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </Menu>
         </Box>
 
-        {/* 4. Pens Dropdown (Popover for complex content) */}
+        {/* Pens Dropdown */}
         <Box sx={{ mr: 2 }}>
           <Button
             variant={isPenActive ? "contained" : "outlined"}
@@ -168,7 +160,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           >
             <Box sx={{ p: 2, width: 250 }}>
-              {/* Pen vs Eraser Toggle */}
               <Typography variant="caption" color="text.secondary" display="block" mb={1}>Tool Type</Typography>
               <ToggleButtonGroup
                 value={activeTool}
@@ -182,28 +173,25 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 <ToggleButton value="ERASER"><AutoFixNormalIcon sx={{ mr: 1 }} /> Eraser</ToggleButton>
               </ToggleButtonGroup>
 
-              {/* Stroke Width Slider */}
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                Size: {strokeWidth}px
-              </Typography>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'grey.500' }} />
-                <Slider 
-                  value={strokeWidth} 
-                  min={1} 
-                  max={50} 
-                  onChange={(_, val) => onStrokeWidthChange(val as number)} 
-                  size="small"
-                />
-                <Box sx={{ width: 15, height: 15, borderRadius: '50%', bgcolor: 'grey.500' }} />
-              </Stack>
-
-              {/* Color Picker (Only if Pen is active) */}
+              {/* Stroke Width Slider (Hidden for Eraser) */}
               {activeTool !== 'ERASER' && (
                 <>
+                  <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                    Size: {strokeWidth}px
+                  </Typography>
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'grey.500' }} />
+                    <Slider 
+                      value={strokeWidth} 
+                      min={1} 
+                      max={50} 
+                      onChange={(_, val) => onStrokeWidthChange(val as number)} 
+                      size="small"
+                    />
+                    <Box sx={{ width: 15, height: 15, borderRadius: '50%', bgcolor: 'grey.500' }} />
+                  </Stack>
                   <Typography variant="caption" color="text.secondary" display="block" mb={1}>Color</Typography>
                   <Stack direction="row" spacing={1}>
-                    {/* Quick Colors */}
                     {['#000000', '#ff0000', '#0000ff', '#008000'].map(c => (
                       <Box 
                         key={c}
@@ -214,7 +202,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
                         }} 
                       />
                     ))}
-                    {/* Custom Picker */}
                     <input
                       type="color"
                       value={color}
@@ -228,29 +215,33 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </Popover>
         </Box>
 
-        {/* Spacer */}
         <Box sx={{ flexGrow: 1 }} />
 
-        {/* 5. History Actions */}
+        {/* Actions Group */}
         <Stack direction="row" spacing={1}>
           <Tooltip title="Undo">
-            <IconButton onClick={onUndo} size="small">
-              <UndoIcon />
-            </IconButton>
+            <IconButton onClick={onUndo} size="small"><UndoIcon /></IconButton>
           </Tooltip>
           <Tooltip title="Redo">
-            <IconButton onClick={onRedo} size="small">
-              <RedoIcon />
-            </IconButton>
+            <IconButton onClick={onRedo} size="small"><RedoIcon /></IconButton>
           </Tooltip>
+          
           <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-          <Tooltip title="Clear Page">
-            <IconButton onClick={onClear} color="error" size="small">
+          
+          {/* --- NEW BUTTON: DELETE SELECTED --- */}
+          <Tooltip title="Delete Selected">
+            <IconButton onClick={onDelete} size="small" color="warning">
               <DeleteIcon />
             </IconButton>
           </Tooltip>
-        </Stack>
 
+          {/* --- CLEAR ALL --- */}
+          <Tooltip title="Clear Entire Page">
+            <IconButton onClick={onClear} color="error" size="small">
+              <DeleteSweepIcon />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </MuiToolbar>
     </AppBar>
   );

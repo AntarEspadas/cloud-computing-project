@@ -8,6 +8,8 @@ interface PageProps {
 }
 
 // Server Component
-export default function RoomPage({ params }: PageProps) {
-  return <RoomClient roomId={params.roomId} />;
+export default async function RoomPage({ params }: PageProps) {
+  const { roomId } = await params;
+  
+  return <RoomClient roomId={roomId} />;
 }
