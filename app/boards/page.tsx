@@ -1,14 +1,19 @@
 "use client";
 
-import { Menu, MenuItem, Container, Box, Typography } from "@mui/material";
+import { Menu, MenuItem, Container, Box, Typography, Alert, Button } from "@mui/material";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import BoardsList, { BoardItem } from "../components/BoardsList";
 import TextInputDialog from "../components/TextInputDialog";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 import CreateBoardButton from "../components/CreateBoardButton";
-import { client } from "../lib/amplify";
+import { boardClient } from "../lib/board-client";
+import { useAuth } from "../lib/auth-context";
 
 export default function BoardsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -22,12 +27,17 @@ export default function BoardsPage() {
 
   useEffect(() => {
     const fetchBoards = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data: boards } = await client.models.Board.list();
+        const { data: boards } = await boardClient.list(user.userId);
         const transformedBoards: BoardItem[] = boards.map((board) => ({
           id: board.id,
           name: board.name || "Untitled",
-          owner: "Unknown",
+          owner: board.createdBy || "Unknown",
           date: board.createdAt
             ? new Date(board.createdAt).toLocaleDateString("en-US", {
                 year: "numeric",
@@ -44,8 +54,10 @@ export default function BoardsPage() {
       }
     };
 
-    fetchBoards();
-  }, []);
+    if (!authLoading) {
+      fetchBoards();
+    }
+  }, [user, authLoading]);
 
   const openMenu = (id: string, event: React.MouseEvent<HTMLElement>) => {
     setSelectedBoardId(id);
@@ -73,7 +85,7 @@ export default function BoardsPage() {
     }
     try {
       setRenaming(true);
-      await client.models.Board.update({ id, name: newName });
+      await boardClient.update({ id, name: newName });
       setBoards((prev) =>
         prev.map((b) => (b.id === id ? { ...b, name: newName } : b))
       );
@@ -99,7 +111,7 @@ export default function BoardsPage() {
     }
     try {
       setDeleting(true);
-      await client.models.Board.delete({ id });
+      await boardClient.delete({ id });
       setBoards((prev) => prev.filter((b) => b.id !== id));
       setDeleteOpen(false);
       setSelectedBoardId(null);
@@ -122,15 +134,25 @@ export default function BoardsPage() {
           <Typography variant="h5" fontWeight={600}>
             Your boards
           </Typography>
-          <CreateBoardButton>Create new</CreateBoardButton>
+          {user && <CreateBoardButton>Create new</CreateBoardButton>}
         </Box>
 
-        <BoardsList
-          boards={boards}
-          loading={loading}
-          onStar={(id) => console.log("Star board", id)}
-          onMoreClick={(id, event) => openMenu(id, event)}
-        />
+        {!user ? (
+          <Alert severity="warning">
+            Please{" "}
+            <Link href="/auth" style={{ fontWeight: "bold" }}>
+              login
+            </Link>{" "}
+            to view your boards.
+          </Alert>
+        ) : (
+          <BoardsList
+            boards={boards}
+            loading={loading}
+            onStar={(id) => console.log("Star board", id)}
+            onMoreClick={(id, event) => openMenu(id, event)}
+          />
+        )}
 
         <TextInputDialog
           open={renameOpen}

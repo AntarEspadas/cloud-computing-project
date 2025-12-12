@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // Next.js Router
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-// Added TextField and Stack
 import {
   Button,
   Container,
@@ -13,20 +12,22 @@ import {
   Box,
   TextField,
   Stack,
+  Alert,
 } from "@mui/material";
 import CreateIcon from "@mui/icons-material/Create";
 import GroupsIcon from "@mui/icons-material/Groups";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import LoginIcon from "@mui/icons-material/Login";
 import CreateBoardButton from "./components/CreateBoardButton";
+import { useAuth } from "./lib/auth-context";
 
 export default function Home() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [inputRoomId, setInputRoomId] = useState("");
 
   const handleJoinRoom = () => {
     if (inputRoomId.trim()) {
-      // Navigate to the room the user typed
       router.push(`/room/${inputRoomId}`);
     }
   };
@@ -59,28 +60,50 @@ export default function Home() {
           </Typography>
         </motion.div>
 
+        {!loading && !user && (
+          <Alert severity="info" sx={{ maxWidth: 600, mx: "auto", mb: 4 }}>
+            Please{" "}
+            <Link href="/auth" style={{ fontWeight: "bold" }}>
+              login or sign up
+            </Link>{" "}
+            to create and manage your boards.
+          </Alert>
+        )}
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          {/* OPTION A: Quick Create */}
           <Box display="flex" justifyContent="center" gap={2} mb={4}>
-            <CreateBoardButton startIcon={<CreateIcon />}>
-              New Board
-            </CreateBoardButton>
-            <Button
-              variant="outlined"
-              size="large"
-              component={Link}
-              href="/boards"
-              startIcon={<GroupsIcon />}
-            >
-              My boards
-            </Button>
+            {user ? (
+              <>
+                <CreateBoardButton startIcon={<CreateIcon />}>
+                  New Board
+                </CreateBoardButton>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  component={Link}
+                  href="/boards"
+                  startIcon={<GroupsIcon />}
+                >
+                  My boards
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="contained"
+                size="large"
+                component={Link}
+                href="/auth"
+                startIcon={<LoginIcon />}
+              >
+                Get Started
+              </Button>
+            )}
           </Box>
 
-          {/* OPTION B: Join Existing */}
           <Paper
             elevation={0}
             variant="outlined"
@@ -112,7 +135,6 @@ export default function Home() {
         </motion.div>
       </Box>
 
-      {/* Feature Grid (Unchanged) */}
       <Box
         display="grid"
         gridTemplateColumns={{ xs: "1fr", md: "repeat(3, 1fr)" }}

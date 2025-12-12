@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { Button } from "@mui/material";
 import TextInputDialog from "./TextInputDialog";
-import { client } from "../lib/amplify";
+import { boardClient } from "../lib/board-client";
+import { useAuth } from "../lib/auth-context";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -15,6 +16,7 @@ export default function CreateBoardButton({ children, startIcon }: Props) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleOpen = () => {
@@ -25,14 +27,18 @@ export default function CreateBoardButton({ children, startIcon }: Props) {
   const handleClose = () => setOpen(false);
 
   const handleSubmit = async (value: string) => {
+    if (!user) return;
+
     try {
       setCreating(true);
       const payload = {
         name: value,
         createdAt: new Date().toISOString(),
+        createdBy: user.email,
+        collaborators: [],
       };
 
-      const { data: board } = await client.models.Board.create(payload);
+      const { data: board } = await boardClient.create(payload);
 
       if (board?.id) {
         router.push(`/room/${board.id}`);
