@@ -1,0 +1,17 @@
+type Mutation {
+  broadcastAction(roomId: String!, actionData: String!): Action
+}
+
+type Action {
+  roomId: String
+  actionData: String
+}
+
+type Subscription {
+  onActionReceived(roomId: String!): Action
+    @aws_subscribe(mutations: ["broadcastAction"])
+}
+
+type Query {
+  getRoom(roomId: String!): String
+}

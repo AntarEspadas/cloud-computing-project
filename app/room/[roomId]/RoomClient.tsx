@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic'; // 1. Import Dynamic
 import { 
   Box, 
   Dialog, 
@@ -8,12 +9,48 @@ import {
   DialogContent, 
   DialogContentText, 
   DialogTitle, 
-  Button 
+  Button,
+  CircularProgress // 2. Import Loader
 } from '@mui/material';
+
+// 3. AWS Imports
+import { generateClient } from 'aws-amplify/api';
+
 import Toolbar from '../../components/Toolbar';
-import Board from '../../components/Board';
+// DELETE: import Board from '../../components/Board'; <--- Removed static import
 import { Tool } from '../../types/tool';
 import { BoardHandle } from '../../types/board';
+
+// 4. Dynamic Import (Fixes SSR Error)
+const Board = dynamic(() => import('../../components/Board'), { 
+  ssr: false,
+  loading: () => (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+      <CircularProgress />
+    </Box>
+  )
+});
+
+// 5. GraphQL Definitions
+const BROADCAST_ACTION = `
+  mutation BroadcastAction($roomId: String!, $actionData: String!) {
+    broadcastAction(roomId: $roomId, actionData: $actionData) {
+      roomId
+      actionData
+    }
+  }
+`;
+
+const ON_ACTION_RECEIVED = `
+  subscription OnActionReceived($roomId: String!) {
+    onActionReceived(roomId: $roomId) {
+      roomId
+      actionData
+    }
+  }
+`;
+
+const client = generateClient();
 
 interface RoomClientProps {
   roomId: string;
@@ -24,29 +61,58 @@ export default function RoomClient({ roomId }: RoomClientProps) {
   const [color, setColor] = useState<string>('#000000');
   const [strokeWidth, setStrokeWidth] = useState<number>(3);
   
-  // State to control the visibility of the custom Alert Dialog
   const [openClearDialog, setOpenClearDialog] = useState(false);
 
   const boardRef = useRef<BoardHandle>(null);
 
+  // --- 6. REAL-TIME SUBSCRIPTION ---
+  useEffect(() => {
+    console.log(`Subscribing to room: ${roomId}`);
+    
+    // Cast to 'any' to avoid TypeScript complaining that .subscribe doesn't exist on Promise
+    const observable = client.graphql({
+      query: ON_ACTION_RECEIVED,
+      variables: { roomId: roomId }
+    }) as any;
+
+    const subscription = observable.subscribe({
+      next: ({ data }: any) => {
+        const incomingData = data.onActionReceived.actionData;
+        // Pass data to the Board component
+        boardRef.current?.applyRemoteAction(incomingData);
+      },
+      error: (error: any) => console.error("Subscription error:", error)
+    });
+
+    return () => subscription.unsubscribe();
+  }, [roomId]);
+
+  // --- 7. BROADCAST HANDLER ---
+  const handleBoardAction = async (data: string) => {
+    try {
+      await client.graphql({
+        query: BROADCAST_ACTION,
+        variables: {
+          roomId: roomId,
+          actionData: data
+        }
+      });
+    } catch (e) {
+      console.error("Failed to broadcast action", e);
+    }
+  };
+
   const handleUndo = () => boardRef.current?.undo();
   const handleRedo = () => boardRef.current?.redo();
   
-  // 1. When user clicks "Clear", just open the popup
-  const handleClearClick = () => {
-    setOpenClearDialog(true);
-  };
-
-  // 2. The actual action when they confirm inside the popup
+  const handleClearClick = () => setOpenClearDialog(true);
+  
   const handleConfirmClear = () => {
     boardRef.current?.clear();
     setOpenClearDialog(false);
   };
 
-  // 3. Close popup without clearing
-  const handleCancelClear = () => {
-    setOpenClearDialog(false);
-  };
+  const handleCancelClear = () => setOpenClearDialog(false);
 
   const handleDelete = () => {
     boardRef.current?.deleteSelected();
@@ -64,7 +130,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         onStrokeWidthChange={setStrokeWidth}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        onClear={handleClearClick} // Call the popup opener
+        onClear={handleClearClick} 
         onDelete={handleDelete}
       />
       
@@ -73,11 +139,11 @@ export default function RoomClient({ roomId }: RoomClientProps) {
           ref={boardRef}
           activeTool={activeTool} 
           color={color} 
-          strokeWidth={strokeWidth} 
+          strokeWidth={strokeWidth}
+          onAction={handleBoardAction} // <--- 8. Connect the broadcaster
         />
       </Box>
 
-      {/* --- CUSTOM ALERT DIALOG --- */}
       <Dialog
         open={openClearDialog}
         onClose={handleCancelClear}

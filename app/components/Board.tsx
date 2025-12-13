@@ -9,12 +9,16 @@ interface BoardProps {
   activeTool: Tool;
   color: string;
   strokeWidth: number;
+  onAction?: (data: string) => void; // <--- NEW: Callback for broadcasting
 }
 
-const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWidth }, ref) => {
+const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWidth, onAction }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const activeToolRef = useRef<Tool>(activeTool);
+
+  // Flag to prevent infinite loops (Server -> Client -> Server -> Client...)
+  const isReceiving = useRef(false);
 
   // Keep activeToolRef in sync
   useEffect(() => {
@@ -25,6 +29,15 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const isLocked = useRef(false);
+
+  // --- HELPER: BROADCAST CHANGES ---
+  const emitChange = () => {
+    // Only emit if the change was made by US, not by the server (isReceiving)
+    if (!isReceiving.current && onAction && fabricRef.current) {
+        const json = JSON.stringify(fabricRef.current.toJSON());
+        onAction(json);
+    }
+  };
 
   // --- EXPOSED METHODS (via Ref) ---
   useImperativeHandle(ref, () => ({
@@ -37,6 +50,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         fabricRef.current?.loadFromJSON(prevState, () => {
           fabricRef.current?.renderAll();
           isLocked.current = false;
+          emitChange(); // Broadcast the undo result
         });
       }
     },
@@ -49,6 +63,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         fabricRef.current?.loadFromJSON(nextState, () => {
           fabricRef.current?.renderAll();
           isLocked.current = false;
+          emitChange(); // Broadcast the redo result
         });
       }
     },
@@ -61,6 +76,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
           canvas.renderAll();
           isLocked.current = false;
           saveHistory(); 
+          emitChange(); // Broadcast the clear
         });
       }
     },
@@ -76,7 +92,27 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         canvas.requestRenderAll();
         isLocked.current = false;
         saveHistory(); 
+        emitChange(); // Broadcast the delete
       }
+    },
+    // NEW: Handle Incoming Data from AppSync
+    applyRemoteAction: (json: string) => {
+        if (!fabricRef.current) return;
+        
+        // Optimization: Don't re-render if state hasn't changed
+        const currentJson = JSON.stringify(fabricRef.current.toJSON());
+        if (currentJson === json) return;
+
+        isReceiving.current = true; // Lock broadcast
+        fabricRef.current.loadFromJSON(json, () => {
+            fabricRef.current?.renderAll();
+            saveHistory(); // Update local history
+            isReceiving.current = false; // Unlock
+        });
+    },
+    // NEW: Get current state (useful for syncing new users)
+    getJson: () => {
+        return fabricRef.current?.toJSON();
     }
   }));
 
@@ -117,15 +153,24 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     saveHistory(); 
 
     // --- EVENT LISTENERS ---
-    canvas.on('object:modified', saveHistory);
+    // Modified to call emitChange() after saving history
+
+    canvas.on('object:modified', () => {
+        saveHistory();
+        emitChange();
+    });
     
     canvas.on('object:added', (e) => {
       if (!e.target?.name?.includes('temp') && e.target?.type !== 'path') {
-         saveHistory(); 
+         saveHistory();
+         emitChange(); 
       }
     });
 
-    canvas.on('object:removed', saveHistory);
+    canvas.on('object:removed', () => {
+        saveHistory();
+        emitChange();
+    });
     
     canvas.on('path:created', (e: any) => {
       const path = e.path;
@@ -135,6 +180,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         path.evented = false;
       }
       saveHistory();
+      emitChange();
     });
 
     const handleResize = () => {
@@ -154,6 +200,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
             canvas.requestRenderAll();
             isLocked.current = false;
             saveHistory();
+            emitChange();
         }
       }
     };
@@ -180,10 +227,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     // Reset Defaults
     canvas.isDrawingMode = false;
     canvas.selection = false;
-    canvas.skipTargetFind = false; // [FIX] Reset this to false by default so Select/Text works
+    canvas.skipTargetFind = false;
     canvas.defaultCursor = 'default';
     
-    // Reset objects' selectability
     canvas.forEachObject(obj => {
         if (obj.globalCompositeOperation !== 'destination-out') {
             obj.selectable = true;
@@ -231,6 +277,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
           text.enterEditing();
           text.selectAll();
           saveHistory();
+          emitChange(); // Broadcast text creation
         });
         break;
 
@@ -239,7 +286,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
       case 'LINE':
         canvas.defaultCursor = 'crosshair';
         canvas.selection = false;
-        canvas.skipTargetFind = true; // [FIX] This forces clicks to ignore existing objects
+        canvas.skipTargetFind = true; 
         
         let isDown = false;
         let origX = 0;
@@ -303,7 +350,8 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
           if (activeShape) {
             activeShape.setCoords();
             activeShape.name = '';   
-            saveHistory();           
+            saveHistory();
+            emitChange(); // Broadcast finished shape
           }
           activeShape = null;
         });

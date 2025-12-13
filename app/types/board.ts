@@ -3,4 +3,7 @@ export interface BoardHandle {
   redo: () => void;
   clear: () => void;
   deleteSelected: () => void;
+
+  applyRemoteAction: (data: string) => void;
+  getJson: () => any;
 }

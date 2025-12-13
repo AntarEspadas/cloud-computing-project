@@ -1,0 +1,22 @@
+{
+  "api": {
+    "realtimewhiteboard": {
+      "dependsOn": [],
+      "output": {
+        "authConfig": {
+          "additionalAuthenticationProviders": [],
+          "defaultAuthentication": {
+            "apiKeyConfig": {
+              "apiKeyExpirationDate": "2026-01-12T18:25:20.140Z",
+              "apiKeyExpirationDays": 30,
+              "description": "public key"
+            },
+            "authenticationType": "API_KEY"
+          }
+        }
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "AppSync"
+    }
+  }
+}
