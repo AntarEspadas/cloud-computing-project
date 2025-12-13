@@ -46,7 +46,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
-  onDelete: () => void; // <--- ADDED THIS PROP
+  onDelete: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({ 
@@ -59,7 +59,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onUndo,
   onRedo,
   onClear,
-  onDelete // <--- Destructure it
+  onDelete
 }) => {
   
   const [shapesAnchor, setShapesAnchor] = useState<null | HTMLElement>(null);
@@ -81,6 +81,24 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
   const isShapeActive = ['RECTANGLE', 'CIRCLE', 'LINE'].includes(activeTool);
   const isPenActive = ['PEN', 'ERASER'].includes(activeTool);
+
+  // Get display label for Shapes button
+  const getShapeLabel = () => {
+    switch (activeTool) {
+      case 'RECTANGLE': return 'Rectangle';
+      case 'CIRCLE': return 'Circle';
+      case 'LINE': return 'Line';
+      default: return 'Shapes';
+    }
+  };
+
+  // Get display label for Pen button
+  const getPenLabel = () => {
+    switch (activeTool) {
+      case 'ERASER': return 'Eraser';
+      default: return 'Pen';
+    }
+  };
 
   return (
     <AppBar position="static" color="default" elevation={1} sx={{ zIndex: 20 }}>
@@ -119,9 +137,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
             color={isShapeActive ? "primary" : "inherit"}
             onClick={openShapesMenu}
             endIcon={<ArrowDropDownIcon />}
-            sx={{ height: 40, px: 2, minWidth: 110 }}
+            sx={{ height: 40, px: 2, minWidth: 120 }}
           >
-            {activeTool === 'CIRCLE' ? 'Circle' : activeTool === 'LINE' ? 'Line' : 'Shapes'}
+            {getShapeLabel()}
           </Button>
           <Menu
             anchorEl={shapesAnchor}
@@ -149,7 +167,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             endIcon={<ArrowDropDownIcon />}
             sx={{ height: 40, px: 2, minWidth: 100 }}
           >
-            {activeTool === 'ERASER' ? 'Eraser' : 'Pen'}
+            {getPenLabel()}
           </Button>
 
           <Popover
@@ -228,7 +246,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           
           <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
           
-          {/* --- NEW BUTTON: DELETE SELECTED --- */}
+          {/* --- DELETE SELECTED --- */}
           <Tooltip title="Delete Selected">
             <IconButton onClick={onDelete} size="small" color="warning">
               <DeleteIcon />

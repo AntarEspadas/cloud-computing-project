@@ -5,5 +5,5 @@ export interface BoardHandle {
   deleteSelected: () => void;
 
   applyRemoteAction: (data: string) => void;
-  getJson: () => any;
+  getJson: () => string;
 }

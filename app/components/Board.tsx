@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { fabric } from 'fabric';
 import { Tool } from '../types/tool';
 import { BoardHandle } from '../types/board';
@@ -9,7 +9,7 @@ interface BoardProps {
   activeTool: Tool;
   color: string;
   strokeWidth: number;
-  onAction?: (data: string) => void; // <--- NEW: Callback for broadcasting
+  onAction?: (data: string) => void;
 }
 
 const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWidth, onAction }, ref) => {
@@ -17,10 +17,8 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const activeToolRef = useRef<Tool>(activeTool);
 
-  // Flag to prevent infinite loops (Server -> Client -> Server -> Client...)
   const isReceiving = useRef(false);
 
-  // Keep activeToolRef in sync
   useEffect(() => {
     activeToolRef.current = activeTool;
   }, [activeTool]);
@@ -32,8 +30,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
 
   // --- HELPER: BROADCAST CHANGES ---
   const emitChange = () => {
-    // Only emit if the change was made by US, not by the server (isReceiving)
-    if (!isReceiving.current && onAction && fabricRef.current) {
+    if (!isReceiving.current && !isLocked.current && onAction && fabricRef.current) {
         const json = JSON.stringify(fabricRef.current.toJSON());
         onAction(json);
     }
@@ -43,14 +40,15 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
   useImperativeHandle(ref, () => ({
     undo: () => {
       if (historyIndexRef.current > 0) {
-        isLocked.current = true;
+        isLocked.current = true; 
         historyIndexRef.current -= 1;
         const prevState = historyRef.current[historyIndexRef.current];
         
         fabricRef.current?.loadFromJSON(prevState, () => {
-          fabricRef.current?.renderAll();
-          isLocked.current = false;
-          emitChange(); // Broadcast the undo result
+          if (!fabricRef.current) return;
+          fabricRef.current.renderAll();
+          isLocked.current = false; 
+          emitChange();
         });
       }
     },
@@ -61,9 +59,10 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         const nextState = historyRef.current[historyIndexRef.current];
         
         fabricRef.current?.loadFromJSON(nextState, () => {
-          fabricRef.current?.renderAll();
+          if (!fabricRef.current) return;
+          fabricRef.current.renderAll();
           isLocked.current = false;
-          emitChange(); // Broadcast the redo result
+          emitChange();
         });
       }
     },
@@ -73,10 +72,12 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         isLocked.current = true; 
         canvas.clear();
         canvas.setBackgroundColor('#f3f4f6', () => {
-          canvas.renderAll();
+          if (!fabricRef.current) return;
+          fabricRef.current.renderAll();
+          
           isLocked.current = false;
           saveHistory(); 
-          emitChange(); // Broadcast the clear
+          emitChange(); 
         });
       }
     },
@@ -86,33 +87,38 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
       const activeObjects = canvas.getActiveObjects();
       
       if (activeObjects.length) {
-        isLocked.current = true;
+        isLocked.current = true; 
         canvas.discardActiveObject();
         canvas.remove(...activeObjects);
         canvas.requestRenderAll();
+        
         isLocked.current = false;
         saveHistory(); 
-        emitChange(); // Broadcast the delete
+        emitChange(); 
       }
     },
-    // NEW: Handle Incoming Data from AppSync
     applyRemoteAction: (json: string) => {
         if (!fabricRef.current) return;
         
-        // Optimization: Don't re-render if state hasn't changed
         const currentJson = JSON.stringify(fabricRef.current.toJSON());
-        if (currentJson === json) return;
+        if (currentJson === json) return; 
 
-        isReceiving.current = true; // Lock broadcast
+        isReceiving.current = true; 
+        
+        isLocked.current = true; 
+
         fabricRef.current.loadFromJSON(json, () => {
-            fabricRef.current?.renderAll();
-            saveHistory(); // Update local history
-            isReceiving.current = false; // Unlock
+            if (!fabricRef.current) return;
+            fabricRef.current.renderAll();
+            
+            isLocked.current = false; 
+            saveHistory(); 
+            
+            isReceiving.current = false; 
         });
     },
-    // NEW: Get current state (useful for syncing new users)
     getJson: () => {
-        return fabricRef.current?.toJSON();
+        return JSON.stringify(fabricRef.current?.toJSON());
     }
   }));
 
@@ -121,7 +127,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     if (isLocked.current || !fabricRef.current) return;
 
     const json = JSON.stringify(
-      fabricRef.current.toJSON(['globalCompositeOperation', 'selectable', 'evented'])
+      fabricRef.current.toJSON(['selectable', 'evented'])
     );
 
     if (historyRef.current.length > 0) {
@@ -153,34 +159,23 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     saveHistory(); 
 
     // --- EVENT LISTENERS ---
-    // Modified to call emitChange() after saving history
-
-    canvas.on('object:modified', () => {
+    const handleModification = () => {
         saveHistory();
         emitChange();
-    });
+    };
+
+    canvas.on('object:modified', handleModification);
     
     canvas.on('object:added', (e) => {
       if (!e.target?.name?.includes('temp') && e.target?.type !== 'path') {
-         saveHistory();
-         emitChange(); 
+         handleModification(); 
       }
     });
 
-    canvas.on('object:removed', () => {
-        saveHistory();
-        emitChange();
-    });
+    canvas.on('object:removed', handleModification);
     
     canvas.on('path:created', (e: any) => {
-      const path = e.path;
-      if (activeToolRef.current === 'ERASER') {
-        path.globalCompositeOperation = 'destination-out';
-        path.selectable = false;
-        path.evented = false;
-      }
-      saveHistory();
-      emitChange();
+      handleModification();
     });
 
     const handleResize = () => {
@@ -199,6 +194,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
             canvas.remove(...activeObjects);
             canvas.requestRenderAll();
             isLocked.current = false;
+            
             saveHistory();
             emitChange();
         }
@@ -211,7 +207,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
+      
       canvas.dispose();
+      fabricRef.current = null;
     };
   }, []);
 
@@ -224,17 +222,14 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
     canvas.off('mouse:move');
     canvas.off('mouse:up');
 
-    // Reset Defaults
     canvas.isDrawingMode = false;
     canvas.selection = false;
     canvas.skipTargetFind = false;
     canvas.defaultCursor = 'default';
     
     canvas.forEachObject(obj => {
-        if (obj.globalCompositeOperation !== 'destination-out') {
-            obj.selectable = true;
-            obj.evented = true;
-        }
+        obj.selectable = true;
+        obj.evented = true;
     });
 
     switch (activeTool) {
@@ -246,14 +241,35 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
         break;
 
       case 'ERASER':
-        canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        canvas.freeDrawingBrush.color = 'rgba(0,0,0,1)'; 
-        canvas.freeDrawingBrush.width = strokeWidth * 5;
-        
+        canvas.isDrawingMode = false; 
         canvas.selection = false;
-        canvas.forEachObject(obj => obj.selectable = false);
-        canvas.defaultCursor = 'not-allowed';
+        canvas.defaultCursor = 'crosshair'; 
+        
+        canvas.forEachObject(obj => {
+            obj.selectable = false;
+            obj.evented = true; 
+        });
+
+        let isErasing = false;
+
+        canvas.on('mouse:down', (opt) => { 
+            isErasing = true;
+            if (opt.target && opt.target.type === 'path') {
+                canvas.remove(opt.target);
+                canvas.requestRenderAll();
+            }
+        });
+        
+        canvas.on('mouse:up', () => { isErasing = false; });
+
+        canvas.on('mouse:move', (opt) => {
+            if (isErasing && opt.target) {
+                if (opt.target.type === 'path') {
+                    canvas.remove(opt.target);
+                    canvas.requestRenderAll();
+                }
+            }
+        });
         break;
 
       case 'SELECT':
@@ -277,7 +293,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
           text.enterEditing();
           text.selectAll();
           saveHistory();
-          emitChange(); // Broadcast text creation
+          emitChange();
         });
         break;
 
@@ -351,7 +367,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(({ activeTool, color, strokeWi
             activeShape.setCoords();
             activeShape.name = '';   
             saveHistory();
-            emitChange(); // Broadcast finished shape
+            emitChange();
           }
           activeShape = null;
         });
