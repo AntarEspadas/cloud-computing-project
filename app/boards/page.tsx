@@ -1,8 +1,14 @@
 "use client";
 
-import { Menu, MenuItem, Container, Box, Typography, Alert, Button } from "@mui/material";
+import {
+  Menu,
+  MenuItem,
+  Container,
+  Box,
+  Typography,
+  Alert,
+} from "@mui/material";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import BoardsList, { BoardItem } from "../components/BoardsList";
 import TextInputDialog from "../components/TextInputDialog";
@@ -13,7 +19,6 @@ import { useAuth } from "../lib/auth-context";
 
 export default function BoardsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -33,7 +38,7 @@ export default function BoardsPage() {
       }
 
       try {
-        const { data: boards } = await boardClient.list(user.userId);
+        const { data: boards } = await boardClient.list(user.email);
         const transformedBoards: BoardItem[] = boards.map((board) => ({
           id: board.id,
           name: board.name || "Untitled",
@@ -137,7 +142,7 @@ export default function BoardsPage() {
           {user && <CreateBoardButton>Create new</CreateBoardButton>}
         </Box>
 
-        {!user ? (
+        {!authLoading && !user ? (
           <Alert severity="warning">
             Please{" "}
             <Link href="/auth" style={{ fontWeight: "bold" }}>
