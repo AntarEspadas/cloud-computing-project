@@ -16,6 +16,33 @@ const schema = a.schema({
     .authorization((allow) => [
       allow.owner(), // Board owner has full access
     ]),
+  Object: a
+    .model({
+      boardID: a.string().required(),
+      lastUpdatedBy: a.string().required(),
+      deleted: a.boolean().default(false),
+      left: a.float().required(),
+      top: a.float().required(),
+      skewX: a.float().default(0).required(),
+      skewY: a.float().default(0).required(),
+      scaleX: a.float().default(1).required(),
+      scaleY: a.float().default(1).required(),
+      angle: a.float().default(0).required(),
+
+      type: a.ref("ContentType").required(),
+      rectangle: a.ref("RectangleContent"),
+    })
+    .authorization((allow) => [allow.authenticated()]),
+
+  ContentType: a.enum(["RECTANGLE"]),
+
+  RectangleContent: a.customType({
+    width: a.float().required(),
+    height: a.float().required(),
+    stroke: a.string().required(),
+    strokeWidth: a.integer().required(),
+    fill: a.string().required(),
+  }),
 });
 
 export type Schema = ClientSchema<typeof schema>;

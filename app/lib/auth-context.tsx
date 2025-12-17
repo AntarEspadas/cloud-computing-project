@@ -10,7 +10,6 @@ import {
 import {
   getCurrentUser,
   signIn,
-  autoSignIn,
   signOut,
   signUp,
   AuthError,
@@ -21,7 +20,6 @@ import outputs from "@/amplify_outputs.json";
 import { Amplify } from "aws-amplify";
 import { useRouter } from "next/navigation";
 
-console.log("Configuring Amplify ...");
 Amplify.configure(outputs);
 
 interface AuthContextType {
@@ -58,8 +56,6 @@ export function AuthProvider({
   );
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  console.log(user);
 
   useEffect(() => {
     (async () => {

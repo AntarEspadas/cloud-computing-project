@@ -38,7 +38,6 @@ export default function BoardsPage() {
       }
 
       try {
-        console.log("Fetching boards for user:", user.userId);
         const { data: boards } = await client.models.Board.list({
           filter: { owner: { eq: user.userId + "::" + user.userId } },
         });
