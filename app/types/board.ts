@@ -19,6 +19,17 @@ export interface RectAction {
   name: string;
 }
 
+export interface ElipseAction {
+  left: number;
+  top: number;
+  rx: number;
+  ry: number;
+  stroke: string;
+  strokeWidth: number;
+  fill: string;
+  name: string;
+}
+
 export interface CreateRectAction extends RectAction {
   type: "CREATE_RECTANGLE";
 }
@@ -28,8 +39,17 @@ export interface UpdateRectAction extends RectAction {
   name: string;
 }
 
-export interface DeleteRectAction {
-  type: "DELETE_RECTANGLE";
+export interface CreateEllipseAction extends ElipseAction {
+  type: "CREATE_ELLIPSE";
+}
+
+export interface UpdateEllipseAction extends ElipseAction {
+  type: "UPDATE_ELLIPSE";
+  name: string;
+}
+
+export interface DeleteObjectAction {
+  type: "DELETE_OBJECT";
   name: string;
 }
 
@@ -48,5 +68,7 @@ export interface UpdateObjectAction {
 export type BoardAction =
   | CreateRectAction
   | UpdateRectAction
-  | DeleteRectAction
+  | CreateEllipseAction
+  | UpdateEllipseAction
+  | DeleteObjectAction
   | UpdateObjectAction;

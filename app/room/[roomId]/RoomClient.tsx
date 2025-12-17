@@ -87,7 +87,6 @@ export default function RoomClient({ roomId }: RoomClientProps) {
   useEffect(() => {
     if (loading || !user) return;
 
-    console.log(boardDownstreamSyncClient, loading, user);
     boardDownstreamSyncClient.start(user.userId);
 
     return () => {

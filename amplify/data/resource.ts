@@ -31,14 +31,23 @@ const schema = a.schema({
 
       type: a.ref("ContentType").required(),
       rectangle: a.ref("RectangleContent"),
+      ellipse: a.ref("EllipseContent"),
     })
     .authorization((allow) => [allow.authenticated()]),
 
-  ContentType: a.enum(["RECTANGLE"]),
+  ContentType: a.enum(["RECTANGLE", "ELLIPSE"]),
 
   RectangleContent: a.customType({
     width: a.float().required(),
     height: a.float().required(),
+    stroke: a.string().required(),
+    strokeWidth: a.integer().required(),
+    fill: a.string().required(),
+  }),
+
+  EllipseContent: a.customType({
+    rx: a.float().required(),
+    ry: a.float().required(),
     stroke: a.string().required(),
     strokeWidth: a.integer().required(),
     fill: a.string().required(),

@@ -1,4 +1,8 @@
-import { ObjectRecord, RectangleRecord } from "@/app/types/schema";
+import {
+  EllipseRecord,
+  ObjectRecord,
+  RectangleRecord,
+} from "@/app/types/schema";
 import { client } from "../amplify";
 import { fabric } from "fabric";
 
@@ -14,15 +18,7 @@ export class BoardDownstreamSyncClient {
   constructor(
     private boardId: string,
     private _canvas: fabric.Canvas | null
-  ) {
-    console.log("Created BoardDownstreamSyncClient", this._canvas);
-  }
-
-  //   setCanvas = (canvas: fabric.Canvas | null) => {
-  //     console.log("Setting canvas in downstream sync client", canvas, this);
-  //   };
-
-  populateCanvas() {}
+  ) {}
 
   async start(userId: string) {
     const filter = {
@@ -44,7 +40,6 @@ export class BoardDownstreamSyncClient {
     client.models.Object.list({
       filter: { boardID: { eq: this.boardId } },
     }).then(({ data }) => {
-      console.log("Adding all rectanges");
       this.addObjects(data);
     });
   }
@@ -52,32 +47,6 @@ export class BoardDownstreamSyncClient {
   stop() {
     this._subscriptions.forEach((sub) => sub.unsubscribe());
     this._subscriptions = [];
-  }
-
-  addObjects(objects: ObjectRecord[]) {
-    if (!this._canvas) return;
-
-    for (const object of objects) {
-      if (object.deleted) continue;
-      if (object.type === "RECTANGLE" && object.rectangle) {
-        this.addRectangle(object as RectangleRecord);
-      }
-    }
-
-    this._canvas.requestRenderAll();
-  }
-
-  updateObject(object: ObjectRecord) {
-    if (!this._canvas) return;
-
-    if (object.deleted) {
-      this.deleteObject(object.id);
-      return;
-    }
-
-    if (object.type === "RECTANGLE" && object.rectangle) {
-      this.updateRectangle(object as RectangleRecord);
-    }
   }
 
   addRectangle(record: RectangleRecord) {
@@ -103,8 +72,13 @@ export class BoardDownstreamSyncClient {
     this._canvas.add(fabricRect);
   }
 
-  updateRectangle(record: ObjectRecord) {
+  updateObject(record: ObjectRecord) {
     if (!this._canvas) return;
+
+    if (record.deleted) {
+      this.deleteObject(record.id);
+      return;
+    }
 
     const obj = this._canvas.getObjects().find((o) => o.name === record.id);
 
@@ -114,28 +88,67 @@ export class BoardDownstreamSyncClient {
       return;
     }
 
-    if (obj instanceof fabric.Rect) {
-      obj.animate(
-        {
-          left: record.left,
-          top: record.top,
-          width: record.rectangle?.width ?? 0,
-          height: record.rectangle?.height ?? 0,
-          stroke: record.rectangle?.stroke ?? "",
-          strokeWidth: record.rectangle?.strokeWidth ?? 0,
-          angle: record.angle,
-          scaleX: record.scaleX,
-          scaleY: record.scaleY,
-          skewX: record.skewX,
-          skewY: record.skewY,
-        },
-        {
-          duration: UPDATE_INTERVAL_MS,
-          onChange: this._canvas.requestRenderAll.bind(this._canvas),
-          easing: fabric.util.ease.easeInOutSine,
-        }
-      );
+    obj.animate(
+      {
+        left: record.left,
+        top: record.top,
+        angle: record.angle,
+        scaleX: record.scaleX,
+        scaleY: record.scaleY,
+        skewX: record.skewX,
+        skewY: record.skewY,
+        width: record.rectangle?.width ?? 0,
+        height: record.rectangle?.height ?? 0,
+        rx: record.ellipse?.rx ?? 0,
+        ry: record.ellipse?.ry ?? 0,
+        stroke: record.rectangle?.stroke ?? record.ellipse?.stroke ?? "",
+        strokeWidth:
+          record.rectangle?.strokeWidth ?? record.ellipse?.strokeWidth ?? 0,
+      },
+      {
+        duration: UPDATE_INTERVAL_MS,
+        onChange: this._canvas.requestRenderAll.bind(this._canvas),
+        easing: fabric.util.ease.easeInOutSine,
+      }
+    );
+  }
+
+  addEllipse(record: EllipseRecord) {
+    if (!this._canvas) return;
+
+    if (record.deleted) return;
+    const fabricEllipse = new fabric.Ellipse({
+      name: record.id,
+      left: record.left,
+      top: record.top,
+      angle: record.angle,
+      scaleX: record.scaleX,
+      scaleY: record.scaleY,
+      skewX: record.skewX,
+      skewY: record.skewY,
+      rx: record.ellipse.rx,
+      ry: record.ellipse.ry,
+      fill: record.ellipse.fill,
+      stroke: record.ellipse.stroke,
+      strokeWidth: record.ellipse.strokeWidth,
+    });
+
+    this._canvas.add(fabricEllipse);
+  }
+
+  addObjects(objects: ObjectRecord[]) {
+    if (!this._canvas) return;
+
+    for (const object of objects) {
+      if (object.deleted) continue;
+      if (object.type === "RECTANGLE" && object.rectangle) {
+        this.addRectangle(object as RectangleRecord);
+      } else if (object.type === "ELLIPSE" && object.ellipse) {
+        this.addEllipse(object as EllipseRecord);
+      }
     }
+
+    this._canvas.requestRenderAll();
   }
 
   deleteObject(recordId: string) {

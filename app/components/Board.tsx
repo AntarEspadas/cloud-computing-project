@@ -255,12 +255,10 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           const activeObjects = canvas.getActiveObjects();
           if (activeObjects.length) {
             for (const obj of activeObjects) {
-              if (obj instanceof fabric.Rect) {
-                onAction?.({
-                  type: "DELETE_RECTANGLE",
-                  name: obj.name!,
-                });
-              }
+              onAction?.({
+                type: "DELETE_OBJECT",
+                name: obj.name!,
+              });
             }
             isLocked.current = true;
             canvas.discardActiveObject();
@@ -393,6 +391,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
             if (activeTool === "RECTANGLE") {
               const name = crypto.randomUUID();
               activeShape = new fabric.Rect({
+                name,
                 left: origX,
                 top: origY,
                 width: 0,
@@ -400,11 +399,11 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 fill: "transparent",
                 stroke: color,
                 strokeWidth: strokeWidth,
-                name,
               });
 
               onAction?.({
                 type: "CREATE_RECTANGLE",
+                name,
                 left: origX,
                 top: origY,
                 width: 0,
@@ -412,10 +411,22 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 fill: "transparent",
                 stroke: color,
                 strokeWidth: strokeWidth,
-                name,
               });
             } else if (activeTool === "CIRCLE") {
+              const name = crypto.randomUUID();
               activeShape = new fabric.Ellipse({
+                name,
+                left: origX,
+                top: origY,
+                rx: 0,
+                ry: 0,
+                fill: "transparent",
+                stroke: color,
+                strokeWidth: strokeWidth,
+              });
+              onAction?.({
+                type: "CREATE_ELLIPSE",
+                name,
                 left: origX,
                 top: origY,
                 rx: 0,
@@ -471,11 +482,32 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               });
             } else if (activeTool === "CIRCLE") {
               const ell = activeShape as fabric.Ellipse;
-              if (origX > pointer.x) ell.set({ left: Math.abs(pointer.x) });
-              if (origY > pointer.y) ell.set({ top: Math.abs(pointer.y) });
+              let left = ell.left!;
+              let top = ell.top!;
+              const rx = Math.abs(origX - pointer.x) / 2;
+              const ry = Math.abs(origY - pointer.y) / 2;
+              if (origX > pointer.x) {
+                left = Math.abs(pointer.x);
+                ell.set({ left });
+              }
+              if (origY > pointer.y) {
+                top = Math.abs(pointer.y);
+                ell.set({ top });
+              }
               ell.set({
-                rx: Math.abs(origX - pointer.x) / 2,
-                ry: Math.abs(origY - pointer.y) / 2,
+                rx,
+                ry,
+              });
+              onAction?.({
+                type: "UPDATE_ELLIPSE",
+                name: ell.name!,
+                left,
+                top,
+                rx,
+                ry,
+                fill: "transparent",
+                stroke: color,
+                strokeWidth: strokeWidth,
               });
             } else if (activeTool === "LINE") {
               const line = activeShape as fabric.Line;

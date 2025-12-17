@@ -1,7 +1,9 @@
 import {
   BoardAction,
+  CreateEllipseAction,
   CreateRectAction,
-  DeleteRectAction,
+  DeleteObjectAction,
+  UpdateEllipseAction,
   UpdateObjectAction,
   UpdateRectAction,
 } from "@/app/types/board";
@@ -22,14 +24,15 @@ export class BoardUpstreamSyncClient {
   handleBoardAction = (action: BoardAction) => {
     if (action.type === "CREATE_RECTANGLE") {
       this.createRect(action);
-    }
-    if (action.type === "UPDATE_RECTANGLE") {
+    } else if (action.type === "UPDATE_RECTANGLE") {
       this.updateRect(action);
-    }
-    if (action.type === "DELETE_RECTANGLE") {
-      this.deleteRect(action);
-    }
-    if (action.type === "UPDATE_OBJECT") {
+    } else if (action.type === "CREATE_ELLIPSE") {
+      this.createEllipse(action);
+    } else if (action.type === "UPDATE_ELLIPSE") {
+      this.updateEllipse(action);
+    } else if (action.type === "DELETE_OBJECT") {
+      this.deleteObject(action);
+    } else if (action.type === "UPDATE_OBJECT") {
       this.updateObject(action);
     }
   };
@@ -58,6 +61,46 @@ export class BoardUpstreamSyncClient {
     });
   }
 
+  createEllipse(action: CreateEllipseAction) {
+    client.models.Object.create({
+      id: action.name,
+      boardID: this.boardId,
+      lastUpdatedBy: this._userId!,
+      left: action.left,
+      top: action.top,
+      deleted: false,
+      angle: 0,
+      skewX: 0,
+      skewY: 0,
+      scaleX: 1,
+      scaleY: 1,
+      type: "ELLIPSE",
+      ellipse: {
+        rx: action.rx,
+        ry: action.ry,
+        stroke: action.stroke,
+        strokeWidth: action.strokeWidth,
+        fill: action.fill,
+      },
+    });
+  }
+
+  updateEllipse = throttle((action: UpdateEllipseAction) => {
+    client.models.Object.update({
+      id: action.name,
+      lastUpdatedBy: this._userId!,
+      left: action.left,
+      top: action.top,
+      ellipse: {
+        rx: action.rx,
+        ry: action.ry,
+        stroke: action.stroke,
+        strokeWidth: action.strokeWidth,
+        fill: action.fill,
+      },
+    });
+  }, UPDATE_INTERVAL_MS);
+
   updateRect = throttle((action: UpdateRectAction) => {
     client.models.Object.update({
       id: action.name,
@@ -74,7 +117,7 @@ export class BoardUpstreamSyncClient {
     });
   }, UPDATE_INTERVAL_MS);
 
-  deleteRect(action: DeleteRectAction) {
+  deleteObject(action: DeleteObjectAction) {
     client.models.Object.update({
       id: action.name,
       lastUpdatedBy: this._userId!,
