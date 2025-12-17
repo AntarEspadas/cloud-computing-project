@@ -37,11 +37,11 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
 
     try {
       const result = await login(email, password);
-      if (result) {
+      if (result === true) {
         setSuccess("Login successful!");
-        setTimeout(() => onAuthSuccess(), 500);
-      } else {
-        setError("Invalid email or password");
+        onAuthSuccess();
+      } else if (typeof result === "string") {
+        setError(result);
       }
     } catch (err: unknown) {
       setError("Login failed. Please try again.");
@@ -64,11 +64,11 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
       }
 
       const result = await signup(email, password);
-      if (result) {
+      if (result === true) {
         setSuccess("Account created! Redirecting...");
         setTimeout(() => onAuthSuccess(), 500);
-      } else {
-        setError("User already exists or signup failed");
+      } else if (typeof result === "string") {
+        setError(result);
       }
     } catch (err: unknown) {
       setError("Signup failed. Please try again.");
@@ -83,8 +83,16 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
         Welcome
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 3 }}>
         <Tab label="Login" icon={<LoginIcon />} />

@@ -14,7 +14,7 @@ import BoardsList, { BoardItem } from "../components/BoardsList";
 import TextInputDialog from "../components/TextInputDialog";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 import CreateBoardButton from "../components/CreateBoardButton";
-import { boardClient } from "../lib/board-client";
+import { client } from "../lib/amplify";
 import { useAuth } from "../lib/auth-context";
 
 export default function BoardsPage() {
@@ -38,8 +38,11 @@ export default function BoardsPage() {
       }
 
       try {
-        const { data: boards } = await boardClient.list(user.email);
-        const transformedBoards: BoardItem[] = boards.map((board) => ({
+        console.log("Fetching boards for user:", user.userId);
+        const { data: boards } = await client.models.Board.list({
+          filter: { owner: { eq: user.userId + "::" + user.userId } },
+        });
+        const transformedBoards = boards.map((board) => ({
           id: board.id,
           name: board.name || "Untitled",
           owner: board.createdBy || "Unknown",
@@ -90,7 +93,7 @@ export default function BoardsPage() {
     }
     try {
       setRenaming(true);
-      await boardClient.update({ id, name: newName });
+      await client.models.Board.update({ id, name: newName });
       setBoards((prev) =>
         prev.map((b) => (b.id === id ? { ...b, name: newName } : b))
       );
@@ -116,7 +119,7 @@ export default function BoardsPage() {
     }
     try {
       setDeleting(true);
-      await boardClient.delete({ id });
+      await client.models.Board.delete({ id });
       setBoards((prev) => prev.filter((b) => b.id !== id));
       setDeleteOpen(false);
       setSelectedBoardId(null);

@@ -5,13 +5,16 @@ const schema = a.schema({
     .model({
       name: a.string(),
       createdAt: a.datetime(),
-      createdBy: a
+      createdBy: a.string(),
+      owner: a
         .string()
-        .authorization((allow) => [allow.owner().to(["read", "delete"])]),
+        .authorization((allow) => [
+          allow.owner().to(["read", "update", "delete"]),
+        ]),
       collaborators: a.string().array(), // Array of user IDs who can access this board
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn("createdBy"), // Board owner has full access
+      allow.owner(), // Board owner has full access
     ]),
 });
 
