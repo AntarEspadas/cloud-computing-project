@@ -429,9 +429,16 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 object: activeShape,
               });
             } else if (activeTool === "LINE") {
+              const name = crypto.randomUUID();
               activeShape = new fabric.Line([origX, origY, origX, origY], {
+                name,
                 stroke: color,
                 strokeWidth: strokeWidth,
+              });
+              onAction?.({
+                type: "CREATE",
+                name,
+                object: activeShape,
               });
             }
 
@@ -465,7 +472,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               onAction?.({
                 type: "UPDATE",
                 name: rect.name!,
-                object: activeShape,
+                object: rect,
               });
             } else if (activeTool === "CIRCLE") {
               const ell = activeShape as fabric.Ellipse;
@@ -488,11 +495,16 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               onAction?.({
                 type: "UPDATE",
                 name: ell.name!,
-                object: activeShape,
+                object: ell,
               });
             } else if (activeTool === "LINE") {
               const line = activeShape as fabric.Line;
               line.set({ x2: pointer.x, y2: pointer.y });
+              onAction?.({
+                type: "UPDATE",
+                name: line.name!,
+                object: line,
+              });
             }
 
             canvas.renderAll();

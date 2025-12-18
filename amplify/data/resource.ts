@@ -26,7 +26,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.authenticated()]),
 
-  ContentType: a.enum(["RECTANGLE", "ELLIPSE", "TEXT", "PATH"]),
+  ContentType: a.enum(["RECTANGLE", "ELLIPSE", "TEXT", "PATH", "LINE"]),
 });
 
 export type Schema = ClientSchema<typeof schema>;

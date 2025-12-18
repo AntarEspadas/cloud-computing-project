@@ -69,6 +69,7 @@ export class BoardUpstreamSyncClient {
     if (object instanceof fabric.Ellipse) return "ELLIPSE";
     if (object instanceof fabric.Text) return "TEXT";
     if (object instanceof fabric.Path) return "PATH";
+    if (object instanceof fabric.Line) return "LINE";
     throw new Error(`Unsupported object type ${typeof object}`);
   }
 }

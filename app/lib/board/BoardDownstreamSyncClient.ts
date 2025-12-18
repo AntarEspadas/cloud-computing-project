@@ -84,6 +84,16 @@ export class BoardDownstreamSyncClient {
         deserializedAttributes.path,
         deserializedAttributes
       );
+    } else if (type === "LINE") {
+      return new fabric.Line(
+        [
+          deserializedAttributes.x1,
+          deserializedAttributes.y1,
+          deserializedAttributes.x2,
+          deserializedAttributes.y2,
+        ],
+        deserializedAttributes
+      );
     }
     throw new Error(`Unknown type ${type}`);
   }
