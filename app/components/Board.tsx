@@ -1,15 +1,9 @@
 "use client";
 
-import React, {
-  useEffect,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-} from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { fabric } from "fabric";
 import { Tool } from "../types/tool";
 import { BoardAction, BoardHandle } from "../types/board";
-import { on } from "events";
 
 interface BoardProps {
   activeTool: Tool;
@@ -62,7 +56,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
             if (!fabricRef.current) return;
             fabricRef.current.renderAll();
             isLocked.current = false;
-            emitChange();
+            // emitChange();
           });
         }
       },
@@ -198,61 +192,38 @@ const Board = forwardRef<BoardHandle, BoardProps>(
       canvas.on("object:scaling", (e) => {
         if (!e.target) return;
         onAction?.({
-          type: "UPDATE_OBJECT",
+          type: "UPDATE",
           name: e.target.name!,
-          left: e.target.left,
-          top: e.target.top,
-          skewX: e.target.skewX,
-          skewY: e.target.skewY,
-          scaleX: e.target.scaleX,
-          scaleY: e.target.scaleY,
-          angle: e.target.angle,
+          object: e.target,
         });
       });
 
       canvas.on("object:rotating", (e) => {
         if (!e.target) return;
         onAction?.({
-          type: "UPDATE_OBJECT",
+          type: "UPDATE",
           name: e.target.name!,
-          left: e.target.left,
-          top: e.target.top,
-          skewX: e.target.skewX,
-          skewY: e.target.skewY,
-          scaleX: e.target.scaleX,
-          scaleY: e.target.scaleY,
-          angle: e.target.angle,
+          object: e.target,
         });
       });
 
       canvas.on("object:moving", (e) => {
         if (!e.target) return;
+        console.log(e.target);
         onAction?.({
-          type: "UPDATE_OBJECT",
+          type: "UPDATE",
           name: e.target.name!,
-          left: e.target.left,
-          top: e.target.top,
-          skewX: e.target.skewX,
-          skewY: e.target.skewY,
-          scaleX: e.target.scaleX,
-          scaleY: e.target.scaleY,
-          angle: e.target.angle,
+          object: e.target,
         });
       });
 
       canvas.on("text:changed", (e) => {
-        if (e.target instanceof fabric.Text) {
-          onAction?.({
-            type: "UPDATE_TEXT",
-            name: e.target.name!,
-            text: e.target.text ?? "",
-            left: e.target.left ?? 0,
-            top: e.target.top ?? 0,
-            fill: e.target.fill?.toString() ?? "",
-            fontFamily: e.target.fontFamily ?? "",
-            fontSize: e.target.fontSize ?? 10,
-          });
-        }
+        if (!e.target) return;
+        onAction?.({
+          type: "UPDATE",
+          name: e.target.name!,
+          object: e.target,
+        });
       });
 
       const handleResize = () => {
@@ -271,7 +242,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           if (activeObjects.length) {
             for (const obj of activeObjects) {
               onAction?.({
-                type: "DELETE_OBJECT",
+                type: "DELETE",
                 name: obj.name!,
               });
             }
@@ -380,14 +351,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               fontFamily: "Arial",
             });
             onAction?.({
-              type: "CREATE_TEXT",
+              type: "CREATE",
               name,
-              left: pointer.x,
-              top: pointer.y,
-              fill: color,
-              fontSize: Math.max(20, strokeWidth * 2),
-              fontFamily: "Arial",
-              text: defaultText,
+              object: text,
             });
             canvas.add(text);
             canvas.setActiveObject(text);
@@ -430,15 +396,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               });
 
               onAction?.({
-                type: "CREATE_RECTANGLE",
+                type: "CREATE",
                 name,
-                left: origX,
-                top: origY,
-                width: 0,
-                height: 0,
-                fill: "transparent",
-                stroke: color,
-                strokeWidth: strokeWidth,
+                object: activeShape,
               });
             } else if (activeTool === "CIRCLE") {
               const name = crypto.randomUUID();
@@ -453,15 +413,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 strokeWidth: strokeWidth,
               });
               onAction?.({
-                type: "CREATE_ELLIPSE",
+                type: "CREATE",
                 name,
-                left: origX,
-                top: origY,
-                rx: 0,
-                ry: 0,
-                fill: "transparent",
-                stroke: color,
-                strokeWidth: strokeWidth,
+                object: activeShape,
               });
             } else if (activeTool === "LINE") {
               activeShape = new fabric.Line([origX, origY, origX, origY], {
@@ -498,15 +452,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 height,
               });
               onAction?.({
-                type: "UPDATE_RECTANGLE",
+                type: "UPDATE",
                 name: rect.name!,
-                left,
-                top,
-                width,
-                height,
-                fill: "transparent",
-                stroke: color,
-                strokeWidth: strokeWidth,
+                object: activeShape,
               });
             } else if (activeTool === "CIRCLE") {
               const ell = activeShape as fabric.Ellipse;
@@ -527,15 +475,9 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 ry,
               });
               onAction?.({
-                type: "UPDATE_ELLIPSE",
+                type: "UPDATE",
                 name: ell.name!,
-                left,
-                top,
-                rx,
-                ry,
-                fill: "transparent",
-                stroke: color,
-                strokeWidth: strokeWidth,
+                object: activeShape,
               });
             } else if (activeTool === "LINE") {
               const line = activeShape as fabric.Line;

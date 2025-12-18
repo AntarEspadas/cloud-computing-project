@@ -21,45 +21,12 @@ const schema = a.schema({
       boardID: a.string().required(),
       lastUpdatedBy: a.string().required(),
       deleted: a.boolean().default(false),
-      left: a.float().required(),
-      top: a.float().required(),
-      skewX: a.float().default(0).required(),
-      skewY: a.float().default(0).required(),
-      scaleX: a.float().default(1).required(),
-      scaleY: a.float().default(1).required(),
-      angle: a.float().default(0).required(),
-
       type: a.ref("ContentType").required(),
-      rectangle: a.ref("RectangleContent"),
-      ellipse: a.ref("EllipseContent"),
-      text: a.ref("TextType"),
+      attributes: a.json().required(),
     })
     .authorization((allow) => [allow.authenticated()]),
 
   ContentType: a.enum(["RECTANGLE", "ELLIPSE", "TEXT"]),
-
-  RectangleContent: a.customType({
-    width: a.float().required(),
-    height: a.float().required(),
-    stroke: a.string().required(),
-    strokeWidth: a.integer().required(),
-    fill: a.string().required(),
-  }),
-
-  EllipseContent: a.customType({
-    rx: a.float().required(),
-    ry: a.float().required(),
-    stroke: a.string().required(),
-    strokeWidth: a.integer().required(),
-    fill: a.string().required(),
-  }),
-
-  TextType: a.customType({
-    text: a.string().required(),
-    fontSize: a.integer().required(),
-    fontFamily: a.string().required(),
-    fill: a.string().required(),
-  }),
 });
 
 export type Schema = ClientSchema<typeof schema>;

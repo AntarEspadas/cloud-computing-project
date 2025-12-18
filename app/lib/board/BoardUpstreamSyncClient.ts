@@ -1,17 +1,10 @@
-import {
-  BoardAction,
-  CreateEllipseAction,
-  CreateRectAction,
-  CreateTextAction,
-  DeleteObjectAction,
-  UpdateEllipseAction,
-  UpdateObjectAction,
-  UpdateRectAction,
-  UpdateTextAction,
-} from "@/app/types/board";
+import { BoardAction, UpdateAction } from "@/app/types/board";
 import { client } from "../amplify";
 import { throttle } from "../util";
 import { getCurrentUser } from "aws-amplify/auth";
+import { attributes } from "./attributes";
+import { ObjectRecord } from "@/app/types/schema";
+import { fabric } from "fabric";
 
 const UPDATE_INTERVAL_MS = 500;
 
@@ -24,162 +17,57 @@ export class BoardUpstreamSyncClient {
   }
 
   handleBoardAction = (action: BoardAction) => {
-    if (action.type === "CREATE_RECTANGLE") {
-      this.createRect(action);
-    } else if (action.type === "UPDATE_RECTANGLE") {
-      this.updateRect(action);
-    } else if (action.type === "CREATE_ELLIPSE") {
-      this.createEllipse(action);
-    } else if (action.type === "UPDATE_ELLIPSE") {
-      this.updateEllipse(action);
-    } else if (action.type === "CREATE_TEXT") {
-      this.createText(action);
-    } else if (action.type == "UPDATE_TEXT") {
-      this.updateText(action);
-    } else if (action.type === "DELETE_OBJECT") {
-      this.deleteObject(action);
-    } else if (action.type === "UPDATE_OBJECT") {
+    if (action.type === "CREATE") {
+      const type = this.getType(action.object);
+      const attributes = this.getAttributes(action.object as unknown);
+      client.models.Object.create({
+        id: action.name,
+        boardID: this.boardId,
+        lastUpdatedBy: this._userId!,
+        deleted: false,
+        type,
+        attributes: JSON.stringify(attributes),
+      });
+    } else if (action.type === "UPDATE") {
       this.updateObject(action);
+    } else if (action.type === "DELETE") {
+      client.models.Object.update({
+        id: action.name,
+        lastUpdatedBy: this._userId!,
+        deleted: true,
+      });
     }
   };
 
-  createRect(action: CreateRectAction) {
-    client.models.Object.create({
-      id: action.name,
-      boardID: this.boardId,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      deleted: false,
-      angle: 0,
-      skewX: 0,
-      skewY: 0,
-      scaleX: 1,
-      scaleY: 1,
-      type: "RECTANGLE",
-      rectangle: {
-        width: action.width,
-        height: action.height,
-        stroke: action.stroke,
-        strokeWidth: action.strokeWidth,
-        fill: action.fill,
-      },
-    });
-  }
-
-  createEllipse(action: CreateEllipseAction) {
-    client.models.Object.create({
-      id: action.name,
-      boardID: this.boardId,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      deleted: false,
-      angle: 0,
-      skewX: 0,
-      skewY: 0,
-      scaleX: 1,
-      scaleY: 1,
-      type: "ELLIPSE",
-      ellipse: {
-        rx: action.rx,
-        ry: action.ry,
-        stroke: action.stroke,
-        strokeWidth: action.strokeWidth,
-        fill: action.fill,
-      },
-    });
-  }
-
-  updateEllipse = throttle((action: UpdateEllipseAction) => {
+  updateObject = throttle((action: UpdateAction) => {
+    const attributes = this.getAttributes(action.object as unknown);
     client.models.Object.update({
       id: action.name,
       lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      ellipse: {
-        rx: action.rx,
-        ry: action.ry,
-        stroke: action.stroke,
-        strokeWidth: action.strokeWidth,
-        fill: action.fill,
-      },
+      attributes: JSON.stringify(attributes),
     });
   }, UPDATE_INTERVAL_MS);
 
-  createText(action: CreateTextAction) {
-    client.models.Object.create({
-      id: action.name,
-      boardID: this.boardId,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      deleted: false,
-      angle: 0,
-      skewX: 0,
-      skewY: 0,
-      scaleX: 1,
-      scaleY: 1,
-      type: "TEXT",
-      text: {
-        fill: action.fill,
-        fontFamily: action.fontFamily,
-        fontSize: action.fontSize,
-        text: action.text,
-      },
-    });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getAttributes(object: any): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const attribute in object) {
+      if (!Object.hasOwn(object, attribute)) continue;
+      if (attributes[attribute] == undefined) continue;
+
+      const value = object[attribute];
+
+      if (value == undefined) continue;
+
+      result[attribute] = value;
+    }
+    return result;
   }
 
-  updateText = throttle((action: UpdateTextAction) => {
-    client.models.Object.update({
-      id: action.name,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      text: {
-        text: action.text,
-        fill: action.fill,
-        fontFamily: action.fontFamily,
-        fontSize: action.fontSize,
-      },
-    });
-  }, UPDATE_INTERVAL_MS);
-
-  updateRect = throttle((action: UpdateRectAction) => {
-    client.models.Object.update({
-      id: action.name,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      rectangle: {
-        width: action.width,
-        height: action.height,
-        stroke: action.stroke,
-        strokeWidth: action.strokeWidth,
-        fill: action.fill,
-      },
-    });
-  }, UPDATE_INTERVAL_MS);
-
-  deleteObject(action: DeleteObjectAction) {
-    client.models.Object.update({
-      id: action.name,
-      lastUpdatedBy: this._userId!,
-      deleted: true,
-    });
+  private getType(object: fabric.Object): ObjectRecord["type"] {
+    if (object instanceof fabric.Rect) return "RECTANGLE";
+    if (object instanceof fabric.Ellipse) return "ELLIPSE";
+    if (object instanceof fabric.Text) return "TEXT";
+    throw new Error(`Unsupported object type ${typeof object}`);
   }
-
-  updateObject = throttle((action: UpdateObjectAction) => {
-    client.models.Object.update({
-      id: action.name,
-      lastUpdatedBy: this._userId!,
-      left: action.left,
-      top: action.top,
-      skewX: action.skewX,
-      skewY: action.skewY,
-      scaleX: action.scaleX,
-      scaleY: action.scaleY,
-      angle: action.angle,
-    });
-  }, UPDATE_INTERVAL_MS);
 }

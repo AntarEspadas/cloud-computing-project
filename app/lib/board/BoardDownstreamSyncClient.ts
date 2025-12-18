@@ -1,11 +1,7 @@
-import {
-  EllipseRecord,
-  ObjectRecord,
-  RectangleRecord,
-  TextRecord,
-} from "@/app/types/schema";
+import { ObjectRecord } from "@/app/types/schema";
 import { client } from "../amplify";
 import { fabric } from "fabric";
+import { attributes } from "./attributes";
 
 const UPDATE_INTERVAL_MS = 500;
 
@@ -26,7 +22,6 @@ export class BoardDownstreamSyncClient {
       boardID: { eq: this.boardId },
       lastUpdatedBy: { ne: userId },
     };
-
     this._subscriptions.push(
       client.models.Object.onCreate({ filter }).subscribe((objects) => {
         this.addObjects([objects]);
@@ -50,30 +45,45 @@ export class BoardDownstreamSyncClient {
     this._subscriptions = [];
   }
 
-  addRectangle(record: RectangleRecord) {
+  private addObjects(objects: ObjectRecord[]) {
     if (!this._canvas) return;
 
-    if (record.deleted) return;
-    const fabricRect = new fabric.Rect({
-      name: record.id,
-      left: record.left,
-      top: record.top,
-      angle: record.angle,
-      scaleX: record.scaleX,
-      scaleY: record.scaleY,
-      skewX: record.skewX,
-      skewY: record.skewY,
-      width: record.rectangle.width,
-      height: record.rectangle.height,
-      fill: record.rectangle.fill,
-      stroke: record.rectangle.stroke,
-      strokeWidth: record.rectangle.strokeWidth,
-    });
+    for (const object of objects) {
+      if (object.deleted) continue;
+      this.addObject(object);
+    }
 
-    this._canvas.add(fabricRect);
+    this._canvas.requestRenderAll();
   }
 
-  updateObject(record: ObjectRecord) {
+  private addObject(object: ObjectRecord) {
+    if (!this._canvas) return;
+
+    const fabricObject = this.instantiate(object.type, object.attributes);
+    fabricObject.name = object.id;
+
+    this._canvas.add(fabricObject);
+  }
+
+  private instantiate(
+    type: ObjectRecord["type"],
+    attributes: ObjectRecord["attributes"]
+  ): fabric.Object {
+    const deserializedAttributes = JSON.parse(attributes as string);
+    if (type === "RECTANGLE") {
+      return new fabric.Rect(deserializedAttributes);
+    } else if (type === "ELLIPSE") {
+      return new fabric.Ellipse(deserializedAttributes);
+    } else if (type === "TEXT") {
+      return new fabric.Text(
+        deserializedAttributes.text,
+        deserializedAttributes
+      );
+    }
+    throw new Error(`Unknown type ${type}`);
+  }
+
+  private updateObject(record: ObjectRecord) {
     if (!this._canvas) return;
 
     if (record.deleted) {
@@ -89,116 +99,48 @@ export class BoardDownstreamSyncClient {
       return;
     }
 
-    obj.animate(this.getAnimatableAttributes(record), {
+    const [animatableAttributes, otherAttributes] = this.getAttributes(
+      record.attributes
+    );
+
+    console.log(animatableAttributes, otherAttributes);
+
+    obj.animate(animatableAttributes, {
       duration: UPDATE_INTERVAL_MS,
       onChange: this._canvas.requestRenderAll.bind(this._canvas),
       easing: fabric.util.ease.easeInOutSine,
     });
 
-    if (record.type === "TEXT" && record.text && obj instanceof fabric.Text) {
-      obj.text = record.text.text;
-      obj.fontFamily = record.text.fontFamily;
-    }
-  }
-
-  getAnimatableAttributes(
-    record: ObjectRecord
-  ): Record<string, number | string> {
-    let attributes: Record<string, number | string> = {
-      left: record.left,
-      top: record.top,
-      angle: record.angle,
-      scaleX: record.scaleX,
-      scaleY: record.scaleY,
-      skewX: record.skewX,
-      skewY: record.skewY,
-    };
-    if (record.type === "RECTANGLE" && record.rectangle) {
-      attributes = {
-        ...attributes,
-        width: record.rectangle.width,
-        height: record.rectangle.height,
-        stroke: record.rectangle.stroke,
-        strokeWidth: record.rectangle.strokeWidth,
-      };
-    } else if (record.type === "ELLIPSE" && record.ellipse) {
-      attributes = {
-        ...attributes,
-        rx: record.ellipse.rx,
-        ry: record.ellipse.ry,
-        stroke: record.ellipse.stroke,
-        strokeWidth: record.ellipse.strokeWidth,
-      };
-    } else if (record.type === "TEXT" && record.text) {
-      attributes = {
-        ...attributes,
-        fontSize: record.text.fontSize,
-      };
-    }
-
-    return attributes;
-  }
-
-  addEllipse(record: EllipseRecord) {
-    if (!this._canvas) return;
-
-    if (record.deleted) return;
-    const fabricEllipse = new fabric.Ellipse({
-      name: record.id,
-      left: record.left,
-      top: record.top,
-      angle: record.angle,
-      scaleX: record.scaleX,
-      scaleY: record.scaleY,
-      skewX: record.skewX,
-      skewY: record.skewY,
-      rx: record.ellipse.rx,
-      ry: record.ellipse.ry,
-      fill: record.ellipse.fill,
-      stroke: record.ellipse.stroke,
-      strokeWidth: record.ellipse.strokeWidth,
-    });
-
-    this._canvas.add(fabricEllipse);
-  }
-
-  addText(record: TextRecord) {
-    if (!this._canvas) return;
-
-    if (record.deleted) return;
-
-    const fabricText = new fabric.Text(record.text.text, {
-      name: record.id,
-      left: record.left,
-      top: record.top,
-      angle: record.angle,
-      scaleX: record.scaleX,
-      scaleY: record.scaleY,
-      skewX: record.skewX,
-      skewY: record.skewY,
-      fill: record.text.fill,
-      fontFamily: record.text.fontFamily,
-      fontSize: record.text.fontSize,
-    });
-
-    this._canvas.add(fabricText);
-  }
-
-  addObjects(objects: ObjectRecord[]) {
-    if (!this._canvas) return;
-
-    for (const object of objects) {
-      if (object.deleted) continue;
-      if (object.type === "RECTANGLE" && object.rectangle) {
-        this.addRectangle(object as RectangleRecord);
-      } else if (object.type === "ELLIPSE" && object.ellipse) {
-        this.addEllipse(object as EllipseRecord);
-      } else if (object.type === "TEXT" && object.text) {
-        this.addText(object as TextRecord);
-      }
+    for (const attr in otherAttributes) {
+      if (!Object.hasOwn(otherAttributes, attr)) continue;
+      const value = otherAttributes[attr];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (obj as any)[attr] = value;
     }
 
     this._canvas.requestRenderAll();
+  }
+
+  private getAttributes(
+    serializedAttributes: ObjectRecord["attributes"]
+  ): [Record<string, number | string>, Record<string, number | string>] {
+    const objAttributes = JSON.parse(serializedAttributes as string);
+    const animatableAttributes: Record<string, number | string> = {};
+    const otherAttributes: Record<string, number | string> = {};
+
+    for (const attr in objAttributes) {
+      if (!Object.hasOwn(objAttributes, attr)) continue;
+
+      const value = objAttributes[attr];
+
+      if (attributes[attr].animatable) {
+        animatableAttributes[attr] = value;
+      } else {
+        otherAttributes[attr] = value;
+      }
+    }
+
+    return [animatableAttributes, otherAttributes];
   }
 
   deleteObject(recordId: string) {
@@ -210,8 +152,4 @@ export class BoardDownstreamSyncClient {
       this._canvas.requestRenderAll();
     }
   }
-}
-
-function flatten(obj: ObjectRecord): Record<string, unknown> {
-  return { ...obj, ...(obj.rectangle ?? {}) };
 }
