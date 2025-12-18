@@ -225,7 +225,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         });
       });
 
-      canvas.on("path:created", (e) => {
+      canvas.on("path:created", (e: any) => {
         const name = crypto.randomUUID();
         e.path.name = name;
         e.path.fill = "transparent";
