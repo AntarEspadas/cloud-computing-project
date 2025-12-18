@@ -1,28 +1,35 @@
+import { ObjectRecord } from "./schema";
+
 export interface BoardHandle {
-  undo: () => void;
-  redo: () => void;
   clear: () => void;
   deleteSelected: () => void;
-
-  applyRemoteAction: (data: string) => void;
   getJson: () => string;
 }
-
-export interface CreateAction {
+export interface BaseAction {
+  objectType: ObjectRecord["type"];
+  name: string;
+}
+export interface CreateAction extends BaseAction {
   type: "CREATE";
-  name: string;
   object: fabric.Object;
 }
 
-export interface UpdateAction {
+export interface UpdateAction extends BaseAction {
   type: "UPDATE";
-  name: string;
   object: fabric.Object;
 }
 
-export interface DeleteAction {
+export interface DeleteAction extends BaseAction {
   type: "DELETE";
-  name: string;
 }
 
-export type BoardAction = CreateAction | UpdateAction | DeleteAction;
+export interface UnDeleteAction extends BaseAction {
+  type: "UN_DELETE";
+  object: fabric.Object;
+}
+
+export type BoardAction =
+  | CreateAction
+  | UpdateAction
+  | DeleteAction
+  | UnDeleteAction;

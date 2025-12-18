@@ -2,6 +2,7 @@ import { ObjectRecord } from "@/app/types/schema";
 import { client } from "../amplify";
 import { fabric } from "fabric";
 import { attributes } from "./attributes";
+import { ActionHistory } from "./ActionHistory";
 
 const UPDATE_INTERVAL_MS = 500;
 
@@ -11,6 +12,8 @@ type Subscription = ReturnType<
 
 export class BoardDownstreamSyncClient {
   private _subscriptions: Subscription[] = [];
+
+  private _actionHistory: ActionHistory | null = null;
 
   constructor(
     private boardId: string,
@@ -45,6 +48,10 @@ export class BoardDownstreamSyncClient {
     this._subscriptions = [];
   }
 
+  setActionHistory(actionHistory: ActionHistory) {
+    this._actionHistory = actionHistory;
+  }
+
   private addObjects(objects: ObjectRecord[]) {
     if (!this._canvas) return;
 
@@ -63,6 +70,7 @@ export class BoardDownstreamSyncClient {
     fabricObject.name = object.id;
 
     this._canvas.add(fabricObject);
+    this._actionHistory?.registerState(object.id, fabricObject);
   }
 
   private instantiate(
@@ -135,6 +143,10 @@ export class BoardDownstreamSyncClient {
     }
 
     this._canvas.requestRenderAll();
+    this._actionHistory?.registerState(record.id, {
+      ...animatableAttributes,
+      ...otherAttributes,
+    });
   }
 
   private getAttributes(

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   Box,
@@ -12,7 +12,6 @@ import {
   Button,
   CircularProgress,
 } from "@mui/material";
-import { generateClient } from "aws-amplify/api";
 
 import Toolbar from "../../components/Toolbar";
 import { Tool } from "../../types/tool";
@@ -20,7 +19,8 @@ import { BoardHandle } from "../../types/board";
 import { BoardUpstreamSyncClient } from "@/app/lib/board/BoardUpstreamSyncClient";
 import { BoardDownstreamSyncClient } from "@/app/lib/board/BoardDownstreamSyncClient";
 import { useAuth } from "@/app/lib/auth-context";
-import { start } from "repl";
+import { ActionHistory } from "@/app/lib/board/ActionHistory";
+import { ActionResolver } from "@/app/lib/board/ActionResolver";
 
 // Dynamic Import for Board
 const Board = dynamic(() => import("../../components/Board"), {
@@ -38,27 +38,6 @@ const Board = dynamic(() => import("../../components/Board"), {
     </Box>
   ),
 });
-
-// GraphQL Definitions
-const BROADCAST_ACTION = `
-  mutation BroadcastAction($roomId: String!, $actionData: String!) {
-    broadcastAction(roomId: $roomId, actionData: $actionData) {
-      roomId
-      actionData
-    }
-  }
-`;
-
-const ON_ACTION_RECEIVED = `
-  subscription OnActionReceived($roomId: String!) {
-    onActionReceived(roomId: $roomId) {
-      roomId
-      actionData
-    }
-  }
-`;
-
-const client = generateClient();
 
 interface RoomClientProps {
   roomId: string;
@@ -84,6 +63,24 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     [roomId, canvas]
   );
 
+  const actionResolver = useMemo(() => new ActionResolver(), []);
+  const actionHistory = useMemo(
+    () => new ActionHistory(actionResolver),
+    [actionResolver]
+  );
+
+  useEffect(() => {
+    actionHistory.setUpstreamSyncClient(boardUpstreamSyncClient);
+  }, [actionHistory, boardUpstreamSyncClient]);
+
+  useEffect(() => {
+    actionResolver.setCanvas(canvas);
+  }, [actionResolver, canvas]);
+
+  useEffect(() => {
+    boardDownstreamSyncClient.setActionHistory(actionHistory);
+  }, [boardDownstreamSyncClient, actionHistory]);
+
   useEffect(() => {
     if (loading || !user) return;
 
@@ -94,57 +91,9 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     };
   }, [boardDownstreamSyncClient, loading, user]);
 
-  const handleBoardAction = async (data: string) => {
-    // try {
-    //   await client.graphql({
-    //     query: BROADCAST_ACTION,
-    //     variables: {
-    //       roomId: roomId,
-    //       actionData: data
-    //     }
-    //   });
-    // } catch (e) {
-    //   console.error("Failed to broadcast:", e);
-    // }
-  };
-
-  useEffect(() => {
-    // const observable = client.graphql({
-    //   query: ON_ACTION_RECEIVED,
-    //   variables: { roomId: roomId }
-    // }) as any;
-
-    // const subscription = observable.subscribe({
-    //   next: ({ data }: any) => {
-    //     const incomingData = data.onActionReceived.actionData;
-
-    //     if (incomingData === 'REQUEST_SYNC') {
-    //        const currentState = boardRef.current?.getJson();
-    //        if (currentState && currentState.length > 20) {
-    //          handleBoardAction(currentState);
-    //        }
-    //        return;
-    //     }
-
-    //     boardRef.current?.applyRemoteAction(incomingData);
-    //   },
-    //   error: (error: any) => console.error("Subscription error:", error)
-    // });
-
-    // Request sync slightly after mounting
-    const syncTimeout = setTimeout(() => {
-      // handleBoardAction('REQUEST_SYNC');
-    }, 1000);
-
-    return () => {
-      // subscription.unsubscribe();
-      clearTimeout(syncTimeout);
-    };
-  }, [roomId]);
-
   // Handlers
-  const handleUndo = () => boardRef.current?.undo();
-  const handleRedo = () => boardRef.current?.redo();
+  const handleUndo = () => actionHistory.undo();
+  const handleRedo = () => actionHistory.redo();
   const handleClearClick = () => setOpenClearDialog(true);
   const handleConfirmClear = () => {
     boardRef.current?.clear();
@@ -182,6 +131,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
           color={color}
           strokeWidth={strokeWidth}
           onAction={boardUpstreamSyncClient.handleBoardAction}
+          onHistoryAction={actionHistory.addEvent}
           onCanvasChanged={setCanvas}
         />
       </Box>

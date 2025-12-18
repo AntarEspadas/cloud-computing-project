@@ -1,3 +1,6 @@
+import { fabric } from "fabric";
+import { ObjectRecord } from "../types/schema";
+
 export function throttle<Args extends readonly unknown[], R>(
   fn: (...args: Args) => R,
   delay: number
@@ -38,4 +41,13 @@ export function throttle<Args extends readonly unknown[], R>(
 
     return lastResult;
   };
+}
+
+export function getType(object: fabric.Object): ObjectRecord["type"] {
+  if (object instanceof fabric.Rect) return "RECTANGLE";
+  if (object instanceof fabric.Ellipse) return "ELLIPSE";
+  if (object instanceof fabric.Text) return "TEXT";
+  if (object instanceof fabric.Path) return "PATH";
+  if (object instanceof fabric.Line) return "LINE";
+  throw new Error(`Unsupported object type ${typeof object}`);
 }

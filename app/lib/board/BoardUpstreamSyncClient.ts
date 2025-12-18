@@ -3,8 +3,6 @@ import { client } from "../amplify";
 import { throttle } from "../util";
 import { getCurrentUser } from "aws-amplify/auth";
 import { attributes } from "./attributes";
-import { ObjectRecord } from "@/app/types/schema";
-import { fabric } from "fabric";
 
 const UPDATE_INTERVAL_MS = 250;
 
@@ -18,14 +16,13 @@ export class BoardUpstreamSyncClient {
 
   handleBoardAction = (action: BoardAction) => {
     if (action.type === "CREATE") {
-      const type = this.getType(action.object);
       const attributes = this.getAttributes(action.object as unknown);
       client.models.Object.create({
         id: action.name,
         boardID: this.boardId,
         lastUpdatedBy: this._userId!,
         deleted: false,
-        type,
+        type: action.objectType,
         attributes: JSON.stringify(attributes),
       });
     } else if (action.type === "UPDATE") {
@@ -36,10 +33,16 @@ export class BoardUpstreamSyncClient {
         lastUpdatedBy: this._userId!,
         deleted: true,
       });
+    } else if (action.type === "UN_DELETE") {
+      client.models.Object.update({
+        id: action.name,
+        lastUpdatedBy: this._userId!,
+        deleted: false,
+      });
     }
   };
 
-  updateObject = throttle((action: UpdateAction) => {
+  private updateObject = throttle((action: UpdateAction) => {
     const attributes = this.getAttributes(action.object as unknown);
     client.models.Object.update({
       id: action.name,
@@ -62,14 +65,5 @@ export class BoardUpstreamSyncClient {
       result[attribute] = value;
     }
     return result;
-  }
-
-  private getType(object: fabric.Object): ObjectRecord["type"] {
-    if (object instanceof fabric.Rect) return "RECTANGLE";
-    if (object instanceof fabric.Ellipse) return "ELLIPSE";
-    if (object instanceof fabric.Text) return "TEXT";
-    if (object instanceof fabric.Path) return "PATH";
-    if (object instanceof fabric.Line) return "LINE";
-    throw new Error(`Unsupported object type ${typeof object}`);
   }
 }

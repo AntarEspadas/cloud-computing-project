@@ -3,7 +3,14 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { fabric } from "fabric";
 import { Tool } from "../types/tool";
-import { BoardAction, BoardHandle } from "../types/board";
+import {
+  BoardAction,
+  BoardHandle,
+  CreateAction,
+  DeleteAction,
+  UpdateAction,
+} from "../types/board";
+import { getType } from "../lib/util";
 
 interface BoardProps {
   activeTool: Tool;
@@ -11,69 +18,34 @@ interface BoardProps {
   strokeWidth: number;
   onAction?: (data: BoardAction) => void;
   onCanvasChanged?: (canvas: fabric.Canvas | null) => void;
+  onHistoryAction?: (data: BoardAction) => void;
 }
 
 const Board = forwardRef<BoardHandle, BoardProps>(
-  ({ activeTool, color, strokeWidth, onAction, onCanvasChanged }, ref) => {
+  (
+    {
+      activeTool,
+      color,
+      strokeWidth,
+      onAction,
+      onCanvasChanged,
+      onHistoryAction,
+    },
+    ref
+  ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fabricRef = useRef<fabric.Canvas | null>(null);
     const activeToolRef = useRef<Tool>(activeTool);
-
-    const isReceiving = useRef(false);
 
     useEffect(() => {
       activeToolRef.current = activeTool;
     }, [activeTool]);
 
     // --- HISTORY STATE ---
-    const historyRef = useRef<string[]>([]);
-    const historyIndexRef = useRef<number>(-1);
     const isLocked = useRef(false);
-
-    // // --- HELPER: BROADCAST CHANGES ---
-    // const emitChange = () => {
-    //   if (
-    //     !isReceiving.current &&
-    //     !isLocked.current &&
-    //     onAction &&
-    //     fabricRef.current
-    //   ) {
-    //     const json = JSON.stringify(fabricRef.current.toJSON());
-    //     onAction(json);
-    //   }
-    // };
 
     // --- EXPOSED METHODS (via Ref) ---
     useImperativeHandle(ref, () => ({
-      undo: () => {
-        // TODO: Implement redo functionality
-        if (historyIndexRef.current > 0) {
-          isLocked.current = true;
-          historyIndexRef.current -= 1;
-          const prevState = historyRef.current[historyIndexRef.current];
-
-          fabricRef.current?.loadFromJSON(prevState, () => {
-            if (!fabricRef.current) return;
-            fabricRef.current.renderAll();
-            isLocked.current = false;
-            // emitChange();
-          });
-        }
-      },
-      redo: () => {
-        // TODO: Implement redo functionality
-        // if (historyIndexRef.current < historyRef.current.length - 1) {
-        //   isLocked.current = true;
-        //   historyIndexRef.current += 1;
-        //   const nextState = historyRef.current[historyIndexRef.current];
-        //   fabricRef.current?.loadFromJSON(nextState, () => {
-        //     if (!fabricRef.current) return;
-        //     fabricRef.current.renderAll();
-        //     isLocked.current = false;
-        //     emitChange();
-        //   });
-        // }
-      },
       clear: () => {
         // TODO: Implement clear functionality
         // const canvas = fabricRef.current;
@@ -104,53 +76,10 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         //   emitChange();
         // }
       },
-      applyRemoteAction: (json: string) => {
-        if (!fabricRef.current) return;
-
-        const currentJson = JSON.stringify(fabricRef.current.toJSON());
-        if (currentJson === json) return;
-
-        isReceiving.current = true;
-
-        isLocked.current = true;
-
-        fabricRef.current.loadFromJSON(json, () => {
-          if (!fabricRef.current) return;
-          fabricRef.current.renderAll();
-
-          isLocked.current = false;
-          saveHistory();
-
-          isReceiving.current = false;
-        });
-      },
       getJson: () => {
         return JSON.stringify(fabricRef.current?.toJSON());
       },
     }));
-
-    // --- HELPER: SAVE HISTORY ---
-    const saveHistory = () => {
-      if (isLocked.current || !fabricRef.current) return;
-
-      const json = JSON.stringify(
-        fabricRef.current.toJSON(["selectable", "evented"])
-      );
-
-      if (historyRef.current.length > 0) {
-        const lastState = historyRef.current[historyIndexRef.current];
-        if (lastState === json) return;
-      }
-
-      const newHistory = historyRef.current.slice(
-        0,
-        historyIndexRef.current + 1
-      );
-      newHistory.push(json);
-
-      historyRef.current = newHistory;
-      historyIndexRef.current = newHistory.length - 1;
-    };
 
     // --- EFFECT 1: INITIALIZATION & GLOBAL LISTENERS ---
     useEffect(() => {
@@ -168,33 +97,13 @@ const Board = forwardRef<BoardHandle, BoardProps>(
 
       onCanvasChanged?.(canvas);
 
-      saveHistory();
-
-      // --- EVENT LISTENERS ---
-      const handleModification = () => {
-        saveHistory();
-      };
-
-      canvas.on("object:modified", handleModification);
-
-      canvas.on("object:added", (e) => {
-        if (!e.target?.name?.includes("temp") && e.target?.type !== "path") {
-          handleModification();
-        }
-      });
-
-      canvas.on("object:removed", handleModification);
-
-      canvas.on("path:created", () => {
-        handleModification();
-      });
-
       canvas.on("object:scaling", (e) => {
         if (!e.target) return;
         onAction?.({
           type: "UPDATE",
           name: e.target.name!,
           object: e.target,
+          objectType: getType(e.target),
         });
       });
 
@@ -204,6 +113,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           type: "UPDATE",
           name: e.target.name!,
           object: e.target,
+          objectType: getType(e.target),
         });
       });
 
@@ -213,27 +123,45 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           type: "UPDATE",
           name: e.target.name!,
           object: e.target,
+          objectType: getType(e.target),
+        });
+      });
+
+      canvas.on("object:modified", (e) => {
+        if (!e.target) return;
+        onHistoryAction?.({
+          type: "UPDATE",
+          name: e.target.name!,
+          object: e.target,
+          objectType: getType(e.target),
         });
       });
 
       canvas.on("text:changed", (e) => {
         if (!e.target) return;
-        onAction?.({
+        const action: UpdateAction = {
           type: "UPDATE",
           name: e.target.name!,
           object: e.target,
-        });
+          objectType: getType(e.target),
+        };
+        onAction?.(action);
+        onHistoryAction?.(action);
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       canvas.on("path:created", (e: any) => {
         const name = crypto.randomUUID();
         e.path.name = name;
         e.path.fill = "transparent";
-        onAction?.({
+        const action: CreateAction = {
           type: "CREATE",
           name,
           object: e.path,
-        });
+          objectType: "PATH",
+        };
+        onAction?.(action);
+        onHistoryAction?.(action);
       });
 
       const handleResize = () => {
@@ -251,18 +179,19 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           const activeObjects = canvas.getActiveObjects();
           if (activeObjects.length) {
             for (const obj of activeObjects) {
-              onAction?.({
+              const action: DeleteAction = {
                 type: "DELETE",
                 name: obj.name!,
-              });
+                objectType: getType(obj),
+              };
+              onAction?.(action);
+              onHistoryAction?.(action);
             }
             isLocked.current = true;
             canvas.discardActiveObject();
             canvas.remove(...activeObjects);
             canvas.requestRenderAll();
             isLocked.current = false;
-
-            saveHistory();
           }
         }
       };
@@ -361,16 +290,18 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               fontSize: Math.max(20, strokeWidth * 2),
               fontFamily: "Arial",
             });
-            onAction?.({
+            const action: CreateAction = {
               type: "CREATE",
               name,
               object: text,
-            });
+              objectType: "TEXT",
+            };
+            onAction?.(action);
+            onHistoryAction?.(action);
             canvas.add(text);
             canvas.setActiveObject(text);
             text.enterEditing();
             text.selectAll();
-            saveHistory();
             // emitChange();
           });
           break;
@@ -410,6 +341,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "CREATE",
                 name,
                 object: activeShape,
+                objectType: "RECTANGLE",
               });
             } else if (activeTool === "CIRCLE") {
               const name = crypto.randomUUID();
@@ -427,6 +359,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "CREATE",
                 name,
                 object: activeShape,
+                objectType: "RECTANGLE",
               });
             } else if (activeTool === "LINE") {
               const name = crypto.randomUUID();
@@ -439,6 +372,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "CREATE",
                 name,
                 object: activeShape,
+                objectType: "LINE",
               });
             }
 
@@ -473,6 +407,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "UPDATE",
                 name: rect.name!,
                 object: rect,
+                objectType: "RECTANGLE",
               });
             } else if (activeTool === "CIRCLE") {
               const ell = activeShape as fabric.Ellipse;
@@ -496,6 +431,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "UPDATE",
                 name: ell.name!,
                 object: ell,
+                objectType: "ELLIPSE",
               });
             } else if (activeTool === "LINE") {
               const line = activeShape as fabric.Line;
@@ -504,6 +440,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
                 type: "UPDATE",
                 name: line.name!,
                 object: line,
+                objectType: "LINE",
               });
             }
 
@@ -514,7 +451,12 @@ const Board = forwardRef<BoardHandle, BoardProps>(
             isDown = false;
             if (activeShape) {
               activeShape.setCoords();
-              saveHistory();
+              onHistoryAction?.({
+                type: "CREATE",
+                name: activeShape.name!,
+                object: activeShape,
+                objectType: getType(activeShape),
+              });
               // emitChange();
             }
             activeShape = null;
