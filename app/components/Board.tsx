@@ -240,6 +240,21 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         });
       });
 
+      canvas.on("text:changed", (e) => {
+        if (e.target instanceof fabric.Text) {
+          onAction?.({
+            type: "UPDATE_TEXT",
+            name: e.target.name!,
+            text: e.target.text ?? "",
+            left: e.target.left ?? 0,
+            top: e.target.top ?? 0,
+            fill: e.target.fill?.toString() ?? "",
+            fontFamily: e.target.fontFamily ?? "",
+            fontSize: e.target.fontSize ?? 10,
+          });
+        }
+      });
+
       const handleResize = () => {
         canvas.setDimensions({
           width: window.innerWidth,
@@ -352,14 +367,27 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         case "TEXT":
           canvas.defaultCursor = "text";
           canvas.on("mouse:down", (opt) => {
+            const name = crypto.randomUUID();
+            const defaultText = "Type here...";
             if (opt.target) return;
             const pointer = canvas.getPointer(opt.e);
-            const text = new fabric.IText("Type here...", {
+            const text = new fabric.IText(defaultText, {
+              name,
               left: pointer.x,
               top: pointer.y,
               fill: color,
               fontSize: Math.max(20, strokeWidth * 2),
               fontFamily: "Arial",
+            });
+            onAction?.({
+              type: "CREATE_TEXT",
+              name,
+              left: pointer.x,
+              top: pointer.y,
+              fill: color,
+              fontSize: Math.max(20, strokeWidth * 2),
+              fontFamily: "Arial",
+              text: defaultText,
             });
             canvas.add(text);
             canvas.setActiveObject(text);

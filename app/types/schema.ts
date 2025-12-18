@@ -14,3 +14,9 @@ export type EllipseRecord = ObjectRecord & {
   type: "ELLIPSE";
   ellipse: EllipseContent;
 };
+
+export type TextContent = Schema["TextType"]["type"];
+export type TextRecord = ObjectRecord & {
+  type: "TEXT";
+  text: TextContent;
+};

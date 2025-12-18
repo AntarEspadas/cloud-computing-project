@@ -2,10 +2,12 @@ import {
   BoardAction,
   CreateEllipseAction,
   CreateRectAction,
+  CreateTextAction,
   DeleteObjectAction,
   UpdateEllipseAction,
   UpdateObjectAction,
   UpdateRectAction,
+  UpdateTextAction,
 } from "@/app/types/board";
 import { client } from "../amplify";
 import { throttle } from "../util";
@@ -30,6 +32,10 @@ export class BoardUpstreamSyncClient {
       this.createEllipse(action);
     } else if (action.type === "UPDATE_ELLIPSE") {
       this.updateEllipse(action);
+    } else if (action.type === "CREATE_TEXT") {
+      this.createText(action);
+    } else if (action.type == "UPDATE_TEXT") {
+      this.updateText(action);
     } else if (action.type === "DELETE_OBJECT") {
       this.deleteObject(action);
     } else if (action.type === "UPDATE_OBJECT") {
@@ -97,6 +103,44 @@ export class BoardUpstreamSyncClient {
         stroke: action.stroke,
         strokeWidth: action.strokeWidth,
         fill: action.fill,
+      },
+    });
+  }, UPDATE_INTERVAL_MS);
+
+  createText(action: CreateTextAction) {
+    client.models.Object.create({
+      id: action.name,
+      boardID: this.boardId,
+      lastUpdatedBy: this._userId!,
+      left: action.left,
+      top: action.top,
+      deleted: false,
+      angle: 0,
+      skewX: 0,
+      skewY: 0,
+      scaleX: 1,
+      scaleY: 1,
+      type: "TEXT",
+      text: {
+        fill: action.fill,
+        fontFamily: action.fontFamily,
+        fontSize: action.fontSize,
+        text: action.text,
+      },
+    });
+  }
+
+  updateText = throttle((action: UpdateTextAction) => {
+    client.models.Object.update({
+      id: action.name,
+      lastUpdatedBy: this._userId!,
+      left: action.left,
+      top: action.top,
+      text: {
+        text: action.text,
+        fill: action.fill,
+        fontFamily: action.fontFamily,
+        fontSize: action.fontSize,
       },
     });
   }, UPDATE_INTERVAL_MS);

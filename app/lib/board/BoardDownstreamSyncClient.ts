@@ -2,6 +2,7 @@ import {
   EllipseRecord,
   ObjectRecord,
   RectangleRecord,
+  TextRecord,
 } from "@/app/types/schema";
 import { client } from "../amplify";
 import { fabric } from "fabric";
@@ -88,29 +89,54 @@ export class BoardDownstreamSyncClient {
       return;
     }
 
-    obj.animate(
-      {
-        left: record.left,
-        top: record.top,
-        angle: record.angle,
-        scaleX: record.scaleX,
-        scaleY: record.scaleY,
-        skewX: record.skewX,
-        skewY: record.skewY,
-        width: record.rectangle?.width ?? 0,
-        height: record.rectangle?.height ?? 0,
-        rx: record.ellipse?.rx ?? 0,
-        ry: record.ellipse?.ry ?? 0,
-        stroke: record.rectangle?.stroke ?? record.ellipse?.stroke ?? "",
-        strokeWidth:
-          record.rectangle?.strokeWidth ?? record.ellipse?.strokeWidth ?? 0,
-      },
-      {
-        duration: UPDATE_INTERVAL_MS,
-        onChange: this._canvas.requestRenderAll.bind(this._canvas),
-        easing: fabric.util.ease.easeInOutSine,
-      }
-    );
+    obj.animate(this.getAnimatableAttributes(record), {
+      duration: UPDATE_INTERVAL_MS,
+      onChange: this._canvas.requestRenderAll.bind(this._canvas),
+      easing: fabric.util.ease.easeInOutSine,
+    });
+
+    if (record.type === "TEXT" && record.text && obj instanceof fabric.Text) {
+      obj.text = record.text.text;
+      obj.fontFamily = record.text.fontFamily;
+    }
+  }
+
+  getAnimatableAttributes(
+    record: ObjectRecord
+  ): Record<string, number | string> {
+    let attributes: Record<string, number | string> = {
+      left: record.left,
+      top: record.top,
+      angle: record.angle,
+      scaleX: record.scaleX,
+      scaleY: record.scaleY,
+      skewX: record.skewX,
+      skewY: record.skewY,
+    };
+    if (record.type === "RECTANGLE" && record.rectangle) {
+      attributes = {
+        ...attributes,
+        width: record.rectangle.width,
+        height: record.rectangle.height,
+        stroke: record.rectangle.stroke,
+        strokeWidth: record.rectangle.strokeWidth,
+      };
+    } else if (record.type === "ELLIPSE" && record.ellipse) {
+      attributes = {
+        ...attributes,
+        rx: record.ellipse.rx,
+        ry: record.ellipse.ry,
+        stroke: record.ellipse.stroke,
+        strokeWidth: record.ellipse.strokeWidth,
+      };
+    } else if (record.type === "TEXT" && record.text) {
+      attributes = {
+        ...attributes,
+        fontSize: record.text.fontSize,
+      };
+    }
+
+    return attributes;
   }
 
   addEllipse(record: EllipseRecord) {
@@ -136,6 +162,28 @@ export class BoardDownstreamSyncClient {
     this._canvas.add(fabricEllipse);
   }
 
+  addText(record: TextRecord) {
+    if (!this._canvas) return;
+
+    if (record.deleted) return;
+
+    const fabricText = new fabric.Text(record.text.text, {
+      name: record.id,
+      left: record.left,
+      top: record.top,
+      angle: record.angle,
+      scaleX: record.scaleX,
+      scaleY: record.scaleY,
+      skewX: record.skewX,
+      skewY: record.skewY,
+      fill: record.text.fill,
+      fontFamily: record.text.fontFamily,
+      fontSize: record.text.fontSize,
+    });
+
+    this._canvas.add(fabricText);
+  }
+
   addObjects(objects: ObjectRecord[]) {
     if (!this._canvas) return;
 
@@ -145,6 +193,8 @@ export class BoardDownstreamSyncClient {
         this.addRectangle(object as RectangleRecord);
       } else if (object.type === "ELLIPSE" && object.ellipse) {
         this.addEllipse(object as EllipseRecord);
+      } else if (object.type === "TEXT" && object.text) {
+        this.addText(object as TextRecord);
       }
     }
 

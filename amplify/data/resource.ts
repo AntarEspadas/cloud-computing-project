@@ -32,10 +32,11 @@ const schema = a.schema({
       type: a.ref("ContentType").required(),
       rectangle: a.ref("RectangleContent"),
       ellipse: a.ref("EllipseContent"),
+      text: a.ref("TextType"),
     })
     .authorization((allow) => [allow.authenticated()]),
 
-  ContentType: a.enum(["RECTANGLE", "ELLIPSE"]),
+  ContentType: a.enum(["RECTANGLE", "ELLIPSE", "TEXT"]),
 
   RectangleContent: a.customType({
     width: a.float().required(),
@@ -50,6 +51,13 @@ const schema = a.schema({
     ry: a.float().required(),
     stroke: a.string().required(),
     strokeWidth: a.integer().required(),
+    fill: a.string().required(),
+  }),
+
+  TextType: a.customType({
+    text: a.string().required(),
+    fontSize: a.integer().required(),
+    fontFamily: a.string().required(),
     fill: a.string().required(),
   }),
 });

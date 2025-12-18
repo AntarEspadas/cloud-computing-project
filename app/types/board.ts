@@ -8,26 +8,33 @@ export interface BoardHandle {
   getJson: () => string;
 }
 
-export interface RectAction {
+export interface ObjectAction {
+  name: string;
   left: number;
   top: number;
+}
+
+export interface RectAction extends ObjectAction {
   width: number;
   height: number;
   stroke: string;
   strokeWidth: number;
   fill: string;
-  name: string;
 }
 
-export interface ElipseAction {
-  left: number;
-  top: number;
+export interface ElipseAction extends ObjectAction {
   rx: number;
   ry: number;
   stroke: string;
   strokeWidth: number;
   fill: string;
-  name: string;
+}
+
+export interface TextAction extends ObjectAction {
+  text: string;
+  fontSize: number;
+  fontFamily: string;
+  fill: string;
 }
 
 export interface CreateRectAction extends RectAction {
@@ -36,7 +43,6 @@ export interface CreateRectAction extends RectAction {
 
 export interface UpdateRectAction extends RectAction {
   type: "UPDATE_RECTANGLE";
-  name: string;
 }
 
 export interface CreateEllipseAction extends ElipseAction {
@@ -45,7 +51,14 @@ export interface CreateEllipseAction extends ElipseAction {
 
 export interface UpdateEllipseAction extends ElipseAction {
   type: "UPDATE_ELLIPSE";
-  name: string;
+}
+
+export interface CreateTextAction extends TextAction {
+  type: "CREATE_TEXT";
+}
+
+export interface UpdateTextAction extends TextAction {
+  type: "UPDATE_TEXT";
 }
 
 export interface DeleteObjectAction {
@@ -70,5 +83,7 @@ export type BoardAction =
   | UpdateRectAction
   | CreateEllipseAction
   | UpdateEllipseAction
+  | CreateTextAction
+  | UpdateTextAction
   | DeleteObjectAction
   | UpdateObjectAction;
