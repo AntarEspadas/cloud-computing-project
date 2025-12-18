@@ -3,7 +3,7 @@ import { client } from "../amplify";
 import { fabric } from "fabric";
 import { attributes } from "./attributes";
 
-const UPDATE_INTERVAL_MS = 500;
+const UPDATE_INTERVAL_MS = 250;
 
 type Subscription = ReturnType<
   ReturnType<typeof client.models.Board.observeQuery>["subscribe"]
@@ -121,7 +121,7 @@ export class BoardDownstreamSyncClient {
     obj.animate(animatableAttributes, {
       duration: UPDATE_INTERVAL_MS,
       onChange: this._canvas.requestRenderAll.bind(this._canvas),
-      easing: fabric.util.ease.easeInOutSine,
+      // easing: fabric.util.ease.easeInOutQuint,
     });
 
     for (const attr in otherAttributes) {

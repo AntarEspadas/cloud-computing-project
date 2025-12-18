@@ -6,7 +6,7 @@ import { attributes } from "./attributes";
 import { ObjectRecord } from "@/app/types/schema";
 import { fabric } from "fabric";
 
-const UPDATE_INTERVAL_MS = 500;
+const UPDATE_INTERVAL_MS = 250;
 
 export class BoardUpstreamSyncClient {
   private _userId: string | null = null;
