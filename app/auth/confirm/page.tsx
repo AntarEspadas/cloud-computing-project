@@ -17,8 +17,8 @@ export default function ConfirmPage() {
 
   const handleConfirmSuccess = () => {
     setTimeout(() => {
-      router.push("/boards");
-    }, 1000);
+      router.push("/auth");
+    }, 500);
   };
 
   return (
