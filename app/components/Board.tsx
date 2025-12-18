@@ -209,7 +209,6 @@ const Board = forwardRef<BoardHandle, BoardProps>(
 
       canvas.on("object:moving", (e) => {
         if (!e.target) return;
-        console.log(e.target);
         onAction?.({
           type: "UPDATE",
           name: e.target.name!,
@@ -223,6 +222,17 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           type: "UPDATE",
           name: e.target.name!,
           object: e.target,
+        });
+      });
+
+      canvas.on("path:created", (e) => {
+        const name = crypto.randomUUID();
+        e.path.name = name;
+        e.path.fill = "transparent";
+        onAction?.({
+          type: "CREATE",
+          name,
+          object: e.path,
         });
       });
 
@@ -295,6 +305,7 @@ const Board = forwardRef<BoardHandle, BoardProps>(
           canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
           canvas.freeDrawingBrush.color = color;
           canvas.freeDrawingBrush.width = strokeWidth;
+          canvas.freeDrawingBrush.decimate = 10;
           break;
 
         case "ERASER":

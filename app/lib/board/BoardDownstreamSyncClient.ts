@@ -79,6 +79,11 @@ export class BoardDownstreamSyncClient {
         deserializedAttributes.text,
         deserializedAttributes
       );
+    } else if (type === "PATH") {
+      return new fabric.Path(
+        deserializedAttributes.path,
+        deserializedAttributes
+      );
     }
     throw new Error(`Unknown type ${type}`);
   }
@@ -102,8 +107,6 @@ export class BoardDownstreamSyncClient {
     const [animatableAttributes, otherAttributes] = this.getAttributes(
       record.attributes
     );
-
-    console.log(animatableAttributes, otherAttributes);
 
     obj.animate(animatableAttributes, {
       duration: UPDATE_INTERVAL_MS,

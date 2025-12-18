@@ -18,4 +18,5 @@ export const attributes: Record<string, Attribute> = {
   stroke: { animatable: false },
   strokeWidth: { animatable: true },
   fill: { animatable: false },
+  path: { animatable: false },
 };
