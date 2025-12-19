@@ -69,7 +69,7 @@ export class ActionResolver {
     } else if (type === "ELLIPSE") {
       return new fabric.Ellipse(attributes);
     } else if (type === "TEXT") {
-      return new fabric.Text(attributes.text, attributes);
+      return new fabric.IText(attributes.text, attributes);
     } else if (type === "PATH") {
       return new fabric.Path(attributes.path, attributes);
     } else if (type === "LINE") {

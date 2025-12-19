@@ -82,7 +82,7 @@ export class BoardDownstreamSyncClient {
     } else if (type === "ELLIPSE") {
       return new fabric.Ellipse(deserializedAttributes);
     } else if (type === "TEXT") {
-      return new fabric.Text(
+      return new fabric.IText(
         deserializedAttributes.text,
         deserializedAttributes
       );
