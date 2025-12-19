@@ -19,8 +19,8 @@ import { BoardHandle } from "../../types/board";
 import { BoardUpstreamSyncClient } from "@/app/lib/board/BoardUpstreamSyncClient";
 import { BoardDownstreamSyncClient } from "@/app/lib/board/BoardDownstreamSyncClient";
 import { useAuth } from "@/app/lib/auth-context";
-import { ActionHistory } from "@/app/lib/board/ActionHistory";
-import { ActionResolver } from "@/app/lib/board/ActionResolver";
+import { actionHistory } from "@/app/lib/board/ActionHistory";
+import { actionResolver } from "@/app/lib/board/ActionResolver";
 
 // Dynamic Import for Board
 const Board = dynamic(() => import("../../components/Board"), {
@@ -59,27 +59,17 @@ export default function RoomClient({ roomId }: RoomClientProps) {
   );
 
   const boardDownstreamSyncClient = useMemo(
-    () => new BoardDownstreamSyncClient(roomId, canvas),
+    () => new BoardDownstreamSyncClient(roomId, canvas, actionHistory),
     [roomId, canvas]
-  );
-
-  const actionResolver = useMemo(() => new ActionResolver(), []);
-  const actionHistory = useMemo(
-    () => new ActionHistory(actionResolver),
-    [actionResolver]
   );
 
   useEffect(() => {
     actionHistory.setUpstreamSyncClient(boardUpstreamSyncClient);
-  }, [actionHistory, boardUpstreamSyncClient]);
+  }, [boardUpstreamSyncClient]);
 
   useEffect(() => {
     actionResolver.setCanvas(canvas);
-  }, [actionResolver, canvas]);
-
-  useEffect(() => {
-    boardDownstreamSyncClient.setActionHistory(actionHistory);
-  }, [boardDownstreamSyncClient, actionHistory]);
+  }, [canvas]);
 
   useEffect(() => {
     if (loading || !user) return;

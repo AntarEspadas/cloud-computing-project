@@ -13,11 +13,10 @@ type Subscription = ReturnType<
 export class BoardDownstreamSyncClient {
   private _subscriptions: Subscription[] = [];
 
-  private _actionHistory: ActionHistory | null = null;
-
   constructor(
     private boardId: string,
-    private _canvas: fabric.Canvas | null
+    private _canvas: fabric.Canvas | null,
+    private _actionHistory: ActionHistory | null
   ) {}
 
   async start(userId: string) {

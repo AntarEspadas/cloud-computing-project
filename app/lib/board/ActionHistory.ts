@@ -5,7 +5,7 @@ import {
   UnDeleteAction,
   UpdateAction,
 } from "@/app/types/board";
-import { ActionResolver } from "./ActionResolver";
+import { actionResolver, ActionResolver } from "./ActionResolver";
 import { BoardUpstreamSyncClient } from "./BoardUpstreamSyncClient";
 
 interface HistoryEvent {
@@ -38,7 +38,6 @@ export class ActionHistory {
   private moveHistory(from: HistoryEvent[], to: HistoryEvent[]) {
     const event = from.pop();
     if (!event) return;
-    console.log("Running compensating action...", event.compensatingAction);
     this._upstreamSyncClient?.handleBoardAction(event.compensatingAction);
     this._actionResolver?.resolve(event.compensatingAction);
 
@@ -46,11 +45,9 @@ export class ActionHistory {
     const compensatingAction = event.compensatingAction;
 
     if (compensatingAction.type !== "DELETE") {
-      console.log("compensating action", compensatingAction.object);
       this._knownStates.set(event.originalAction.name, {
         ...compensatingAction.object,
       });
-      console.log(this._knownStates.get(compensatingAction.name));
     }
 
     to.push(oppositeEvent);
@@ -161,3 +158,5 @@ export class ActionHistory {
     };
   }
 }
+
+export const actionHistory = new ActionHistory(actionResolver);

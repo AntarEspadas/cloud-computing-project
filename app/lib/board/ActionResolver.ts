@@ -81,3 +81,5 @@ export class ActionResolver {
     throw new Error(`Unknown type ${type}`);
   }
 }
+
+export const actionResolver = new ActionResolver();

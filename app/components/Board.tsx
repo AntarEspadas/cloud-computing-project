@@ -164,17 +164,6 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         onHistoryAction?.(action);
       });
 
-      canvas.on("object:removed", (e) => {
-        if (!e.target) return;
-        const action: DeleteAction = {
-          type: "DELETE",
-          name: e.target.name!,
-          objectType: getType(e.target),
-        };
-        onAction?.(action);
-        onHistoryAction?.(action);
-      });
-
       const handleResize = () => {
         canvas.setDimensions({
           width: window.innerWidth,
@@ -194,6 +183,15 @@ const Board = forwardRef<BoardHandle, BoardProps>(
             canvas.remove(...activeObjects);
             canvas.requestRenderAll();
             isLocked.current = false;
+            for (const object of activeObjects) {
+              const action: DeleteAction = {
+                type: "DELETE",
+                name: object.name!,
+                objectType: getType(object),
+              };
+              onAction?.(action);
+              onHistoryAction?.(action);
+            }
           }
         }
       };
@@ -256,6 +254,13 @@ const Board = forwardRef<BoardHandle, BoardProps>(
             if (opt.target && opt.target.type === "path") {
               canvas.remove(opt.target);
               canvas.requestRenderAll();
+              const action: DeleteAction = {
+                type: "DELETE",
+                name: opt.target.name!,
+                objectType: getType(opt.target),
+              };
+              onAction?.(action);
+              onHistoryAction?.(action);
             }
           });
 
@@ -268,6 +273,13 @@ const Board = forwardRef<BoardHandle, BoardProps>(
               if (opt.target.type === "path") {
                 canvas.remove(opt.target);
                 canvas.requestRenderAll();
+                const action: DeleteAction = {
+                  type: "DELETE",
+                  name: opt.target.name!,
+                  objectType: getType(opt.target),
+                };
+                onAction?.(action);
+                onHistoryAction?.(action);
               }
             }
           });
