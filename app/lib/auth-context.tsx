@@ -115,7 +115,7 @@ export function AuthProvider({
 
       if (result.isSignedIn) {
         const user = await getCurrentUser();
-        setUser({ email: user.username, userId: user.userId });
+        setUser({ email, userId: user.userId });
         return true;
       }
 

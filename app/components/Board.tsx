@@ -164,6 +164,17 @@ const Board = forwardRef<BoardHandle, BoardProps>(
         onHistoryAction?.(action);
       });
 
+      canvas.on("object:removed", (e) => {
+        if (!e.target) return;
+        const action: DeleteAction = {
+          type: "DELETE",
+          name: e.target.name!,
+          objectType: getType(e.target),
+        };
+        onAction?.(action);
+        onHistoryAction?.(action);
+      });
+
       const handleResize = () => {
         canvas.setDimensions({
           width: window.innerWidth,
@@ -178,15 +189,6 @@ const Board = forwardRef<BoardHandle, BoardProps>(
 
           const activeObjects = canvas.getActiveObjects();
           if (activeObjects.length) {
-            for (const obj of activeObjects) {
-              const action: DeleteAction = {
-                type: "DELETE",
-                name: obj.name!,
-                objectType: getType(obj),
-              };
-              onAction?.(action);
-              onHistoryAction?.(action);
-            }
             isLocked.current = true;
             canvas.discardActiveObject();
             canvas.remove(...activeObjects);
